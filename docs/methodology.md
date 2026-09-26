@@ -42,8 +42,16 @@
 - **Estimated annual walking time** = total distance / 1.0 m/s. Walking only; picking, handling and congestion are excluded.
 - `reports/kpi_summary.xlsx` holds the KPI table, all assumptions and the slot assignment of the 100 fastest SKUs. Its numbers are read from `data/processed/scenario_results.csv` and checked against it after saving.
 
-## 8. Known limitations
+## 8. Out-of-sample check (Module 4)
+- **Purpose:** Modules 2-3 rank SKUs with the same 12 months they are evaluated on. Module 4 measures how much of the saving remains when SKUs are ranked on past orders only.
+- **Split:** each invoice is assigned by its timestamp. Orders before 1 June 2011 are the *history* (8,067 orders, Dec 2010 - May 2011); orders on or after that date are the *evaluation* set (11,706 orders, Jun - Dec 2011). The two halves are unequal in order count.
+- **Out-of-sample:** pick frequency (order-line count per SKU, as in Module 1) and ABC classes (same 80% / 95% cut-offs) are computed from the history orders. SKUs without picks in the history get frequency 0 and class C, and are placed last (ties by SKU code). All 3,791 SKUs still receive a slot.
+- **In-sample reference:** the same computation on the evaluation orders themselves. It is therefore not equal to the full-year results of Module 2.
+- **Evaluation:** the same layout, S-shape routing and 10 random seeds as Module 2, on the evaluation orders only. Reduction = 1 - distance of the scenario / mean distance of the random seeds on the same orders.
+- **Caveats:** one time split only; the evaluation half contains the autumn peak and 514 SKUs that had no picks in the history (16.2% of evaluation visits), so the result is indicative, not a confidence interval.
+
+## 9. Known limitations
 - The layout is synthetic; absolute distances depend on its dimensions, relative differences between scenarios on the layout shape and order size.
-- SKUs are ranked and evaluated on the same 12 months (in-sample), which favours the velocity-based scenarios. Out-of-sample savings are expected to be smaller (see README).
+- The main results (Modules 2-3) are in-sample, which favours the velocity-based scenarios; the out-of-sample check (section 8) shows about half of the saving remains on later orders.
 - Zones for class-based slotting follow walking distance from the depot; aisle-based zoning and co-occurrence-based slotting were not tested.
 - No batching, congestion, item size or rack capacity constraints, and no re-slotting cost.
