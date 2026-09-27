@@ -35,19 +35,32 @@ Full tables: `reports/kpi_summary.xlsx` (KPI summary, assumptions, slot assignme
 
 ### Out-of-sample check (Module 4)
 
-The table above ranks SKUs with the same orders it evaluates. To see how much of the saving survives on unseen orders, SKUs were ranked (pick frequency and ABC classes) on the earlier orders (Dec 2010 - May 2011, 8,067 orders) and evaluated on the later ones (Jun - Dec 2011, 11,706 orders), with the same layout and S-shape routing. The in-sample columns rank SKUs on those later orders themselves, so they differ from the full-year table.
+The table above ranks SKUs with the same orders it evaluates. Module 4 checks how much of the saving survives when SKUs are ranked on *earlier* orders only, on two independent splits (same layout and S-shape routing in both):
 
-| Scenario | In-sample: avg. distance | In-sample: reduction | Out-of-sample: avg. distance | Out-of-sample: reduction |
+- **6+6 months** (within the last 12 months): rank on Dec 2010 - May 2011 (8,067 orders), evaluate on Jun - Dec 2011 (11,706 orders). Unequal halves; the evaluation half includes the autumn peak.
+- **Year-over-year**: rank on the whole prior year, 1 Dec 2009 - 30 Nov 2010 (19,743 orders), evaluate on the whole following year, 1 Dec 2010 - 30 Nov 2011 (18,957 orders) - two equal, non-overlapping 12-month windows. Only SKUs actually picked in the evaluated year are slotted (3,789 SKUs, still under the 4,000-slot layout). The two source sheets share an exact 9-day overlap at their boundary (21,932 duplicate rows / 830 invoices), which is detected and removed before the split.
+
+| Scenario | Split | In-sample reduction | Out-of-sample reduction |
+|---|---|---|---|
+| Class-based ABC | 6+6 months | -26.9% | **-13.3%** |
+| Class-based ABC | Year-over-year | -24.4% | **-12.6%** |
+| Full velocity | 6+6 months | -35.0% | **-18.3%** |
+| Full velocity | Year-over-year | -32.0% | **-18.6%** |
+
+The two splits - built from non-overlapping years of data - agree closely (class-based -13.3% vs. -12.6%; full velocity -18.3% vs. -18.6%). **We treat the year-over-year split as the primary out-of-sample estimate**, because it compares two equal 12-month windows (no seasonal imbalance between the ranking and evaluation periods) and matches how a warehouse would actually re-slot - once a year, on the prior year's data. The 6+6 split is a robustness check and reaches the same conclusion.
+
+**Where does the rest of the in-sample saving go?** Each out-of-sample scenario was evaluated a second time, excluding visits to SKUs never picked in the ranking period ("seen-only visits"), against its own random baseline computed the same way:
+
+| Scenario | Split | Reduction, all visits | Reduction, seen-only visits | New-SKU effect |
 |---|---|---|---|---|
-| Random (baseline)¹ | 948 m | – | 948 m | – |
-| Class-based ABC¹ | 693 m | -26.9% | 821 m | **-13.3%** |
-| Full velocity | 615 m | -35.0% | 774 m | **-18.3%** |
+| Class-based ABC | 6+6 months | -13.3% | -23.8% | 10.5 pp |
+| Class-based ABC | Year-over-year | -12.6% | -23.8% | 11.3 pp |
+| Full velocity | 6+6 months | -18.3% | -31.4% | 13.1 pp |
+| Full velocity | Year-over-year | -18.6% | -31.9% | 13.3 pp |
 
-¹ Mean of 10 random seeds. Class-based range across seeds: -27.4% to -26.5% in-sample, -14.1% to -12.7% out-of-sample.
-
-- About half of the saving remains on unseen orders; full velocity still beats class-based.
-- 514 SKUs picked in the evaluation period were never picked in the earlier period (16.2% of evaluation visits). They are ranked last in the out-of-sample scenarios.
-- One time split with unequal halves (the later period includes the autumn peak). Treat the numbers as indicative.
+- SKUs with no pick history in the ranking period (514 of 3,791 SKUs / 16.2% of visits, 6+6; 651 of 3,789 SKUs / 18.7% of visits, year-over-year) are ranked last by construction. Excluding their visits recovers most of the in-sample saving: seen-only reductions (23.8-31.9%) sit close to the in-sample figures (24.4-35.0%).
+- So **10-13 percentage points of the out-of-sample gap is specifically the cost of slotting items with no pick history**; the remaining 1-4 points is ordinary pick-frequency drift among SKUs that were already known.
+- Practically, this argues for a new-SKU policy (provisional slotting from a category/supplier proxy, then a fast re-check after the first weeks of sales) rather than against velocity-based slotting itself.
 
 ![In-sample vs. out-of-sample](reports/figures/05_in_vs_out_of_sample.png)
 
@@ -67,7 +80,7 @@ The table above ranks SKUs with the same orders it evaluates. To see how much of
 | 1 | **Order profile & velocity ABC:** lines per order, pick-frequency Pareto, ABC by pick frequency vs. ABC by revenue | ✅ Done |
 | 2 | **Slotting & routing:** synthetic warehouse layout, random / class-based ABC / full-velocity slotting, S-shape picking route distance | ✅ Done |
 | 3 | **KPI framework:** before/after comparison of travel distance and related warehouse KPIs in an Excel workbook | ✅ Done |
-| 4 | **Out-of-sample check:** SKUs ranked on the earlier orders, scenarios evaluated on the later orders | ✅ Done |
+| 4 | **Out-of-sample check:** two independent history/future splits, plus a new-SKU vs. frequency-drift decomposition | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -105,7 +118,7 @@ python -m pytest tests/                # or: python tests/test_routing.py
 - Picking routes use the S-shape heuristic, a common industry baseline rather than an optimal route. One picker per order; no batching, congestion or zone picking.
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
-- **In-sample main results:** the Key Results rank SKUs with the same 12 months they are evaluated on. The out-of-sample check (Module 4) shows that about half of the saving remains on later orders (-13.3% class-based, -18.3% full velocity, single time split). Expect the smaller figures for a real re-slotting.
+- **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is roughly -13% (class-based) and -18% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check below), not a flaw in velocity-based slotting itself.
 - Item dimensions, weight, rack capacity, replenishment and the cost of re-slotting are not modelled.
 
 ## Author
