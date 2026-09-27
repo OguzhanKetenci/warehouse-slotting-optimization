@@ -85,9 +85,11 @@ def within_year_periods():
     return history, future, {}
 
 
-def year_over_year_periods(m1):
-    """Year-over-year split: prior year (sheet 'Year 2009-2010') vs. evaluated year (Module 1's clean_lines.csv),
-    both cleaned with Module 1's rules, cross-sheet duplicate rows removed, then trimmed to full calendar years.
+def combined_deduped_lines(m1):
+    """History sheet ('Year 2009-2010') and Module 1's clean_lines.csv ('Year 2010-2011'), both
+    cleaned with Module 1's rules, with cross-sheet duplicate rows removed from the history side.
+    Not yet windowed to any date range - Module 6 reuses this to build rolling monthly snapshots
+    that span both sheets, in addition to year_over_year_periods()'s own fixed-year windows below.
     """
     future_raw = pd.read_csv(PROC / "clean_lines.csv", usecols=KEY_COLS,
                              dtype={"Invoice": str, "StockCode": str}, parse_dates=["InvoiceDate"])
@@ -104,6 +106,12 @@ def year_over_year_periods(m1):
     dup_info = {"cross_sheet_duplicate_rows": int(is_dup.sum()),
                 "cross_sheet_duplicate_invoices": int(history_raw.loc[is_dup, "Invoice"].nunique())}
     history_raw = history_raw.loc[~is_dup].copy()
+    return history_raw, future_raw, dup_info
+
+
+def year_over_year_periods(m1):
+    """Year-over-year split: prior year vs. evaluated year, each trimmed to a full calendar year."""
+    history_raw, future_raw, dup_info = combined_deduped_lines(m1)
 
     def window(df, start, end):
         invoice_start = df.groupby("Invoice")["InvoiceDate"].transform("min")
