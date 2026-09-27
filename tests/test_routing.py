@@ -51,6 +51,59 @@ def test_vectorised_matches_hand_calculations():
     assert sr.s_shape_distances(order, aisle, y).tolist() == [42.0, 115.0, 176.0]
 
 
+# --- Return policy: 2 adjacent aisles (0 and 1, x = 1.5 and 4.5), one pick per aisle -----------
+
+def test_two_aisles_shallow_picks_return_beats_s_shape():
+    # Picks at y = 20 in both aisles. S-shape always fully traverses both aisles (n=2, even):
+    #   horizontal 2*4.5=9 | vertical 50*2=100 | total 109 (independent of the picks' depth).
+    # Return enters each aisle only to the pick and back:
+    #   horizontal 9 | vertical 2*(20+20)=80 | total 89.
+    assert sr.s_shape_distance([0, 1], [20.0, 20.0]) == 9 + 100 == 109.0
+    assert sr.return_distance([0, 1], [20.0, 20.0]) == 9 + 80 == 89.0
+
+
+def test_two_aisles_deep_picks_s_shape_beats_return():
+    # Same two aisles, picks now at y = 40 (deep). S-shape is unchanged (still fully
+    # traverses both aisles regardless of depth): total 109, same as the shallow case.
+    # Return now walks in to y = 40 and back in each aisle: vertical 2*(40+40)=160, total 169.
+    # So S-shape (109) is now shorter than Return (169) - the opposite of the shallow case.
+    s_shape = sr.s_shape_distance([0, 1], [40.0, 40.0])
+    ret = sr.return_distance([0, 1], [40.0, 40.0])
+    assert s_shape == 109.0
+    assert ret == 9 + 160 == 169.0
+    assert s_shape < ret
+
+
+# --- Largest gap: 3 aisles (0 = first, 1 = middle, 2 = last, x = 1.5/4.5/7.5) -------------------
+
+def test_largest_gap_internal_gap_between_two_picks():
+    # Middle aisle (1) has two picks at y = 10 and y = 40: gaps are 10 (front->10), 30 (10->40),
+    # 10 (40->back) - the largest is the internal 30 m gap, so the aisle contributes
+    # 2*(50-30) = 40 (enter front to y=10 and back: 20; enter back to y=40 and back: 20).
+    # First (0) and last (2) aisles are each fully traversed once regardless of their own
+    # pick depth: 50 + 50 = 100. Horizontal: 2*x(last aisle 2) = 2*7.5 = 15.
+    # Total = 15 + 100 + 40 = 155 (cross-checked against an explicit waypoint route by hand).
+    aisles = [0, 1, 1, 2]
+    ys = [25.0, 10.0, 40.0, 15.0]   # first/last-aisle y is irrelevant (full traverse either way)
+    assert sr.largest_gap_distance(aisles, ys) == 15 + 100 + 40 == 155.0
+
+
+def test_largest_gap_boundary_gap_at_the_front():
+    # Middle aisle (1) has a single pick at y = 45: gaps are 45 (front->45) and 5 (45->back).
+    # The largest gap is the 45 m FRONT gap, so the picker skips the front entirely and enters
+    # only from the back: 2*(50-45) = 10 (equivalently 2*5, straight in from the back and out).
+    # First/last aisles: 50 + 50 = 100. Horizontal: 2*7.5 = 15. Total = 15 + 100 + 10 = 125.
+    aisles = [0, 1, 2]
+    ys = [25.0, 45.0, 15.0]
+    assert sr.largest_gap_distance(aisles, ys) == 15 + 100 + 10 == 125.0
+
+
+def test_largest_gap_equals_s_shape_when_there_is_no_middle_aisle():
+    # With only 2 non-empty aisles there is no "middle" aisle to skip a gap in, so largest-gap
+    # reduces exactly to S-shape. Reuses the fixture of test_two_aisles (expected 115.0).
+    assert sr.largest_gap_distance([0, 2], [4.5, 30.5]) == sr.s_shape_distance([0, 2], [4.5, 30.5]) == 115.0
+
+
 def _waypoint_route_length(aisles, ys):
     """Independent check: build the S-shape path as explicit waypoints and sum Manhattan legs."""
     x_of = lambda a: sr.FIRST_AISLE_X_M + sr.AISLE_PITCH_M * a
@@ -90,6 +143,51 @@ def test_formula_matches_waypoint_simulation_on_random_orders():
                                   np.concatenate([y for _, y in orders]))
     assert np.allclose(scalar, expected)
     assert np.allclose(vector, expected)
+
+
+def test_return_and_largest_gap_hand_calculations_match_vectorised():
+    # The hand-computed Return orders above (shallow/deep picks), evaluated together by the
+    # vectorised function (independent code path: pandas groupby vs. plain dict looping).
+    ret_order = np.array([0, 0, 1, 1])
+    ret_aisle = np.array([0, 1, 0, 1])
+    ret_y = np.array([20.0, 20.0, 40.0, 40.0])
+    assert sr.return_distances(ret_order, ret_aisle, ret_y).tolist() == [89.0, 169.0]
+
+    # The hand-computed largest-gap orders above (internal gap, front-boundary gap, no middle
+    # aisle), evaluated together by the vectorised function.
+    lg_order = np.array([0, 0, 0, 0, 1, 1, 1, 2, 2])
+    lg_aisle = np.array([0, 1, 1, 2, 0, 1, 2, 0, 2])
+    lg_y = np.array([25.0, 10.0, 40.0, 15.0, 25.0, 45.0, 15.0, 4.5, 30.5])
+    assert sr.largest_gap_distances(lg_order, lg_aisle, lg_y).tolist() == [155.0, 125.0, 115.0]
+
+
+def _random_orders(seed: int, n_orders: int = 300):
+    rng = np.random.default_rng(seed)
+    orders = []
+    for _ in range(n_orders):
+        n_picks = int(rng.integers(1, 30))
+        aisles = rng.integers(0, sr.N_AISLES, n_picks)
+        ys = (rng.integers(0, sr.SLOTS_PER_SIDE, n_picks) + 0.5) * sr.SLOT_WIDTH_M
+        orders.append((aisles, ys))
+    return orders
+
+
+def test_return_vectorised_matches_scalar_on_random_orders():
+    orders = _random_orders(seed=7)
+    scalar = [sr.return_distance(a, y) for a, y in orders]
+    order_idx = np.repeat(np.arange(len(orders)), [len(a) for a, _ in orders])
+    vector = sr.return_distances(order_idx, np.concatenate([a for a, _ in orders]),
+                                 np.concatenate([y for _, y in orders]))
+    assert np.allclose(scalar, vector)
+
+
+def test_largest_gap_vectorised_matches_scalar_on_random_orders():
+    orders = _random_orders(seed=11)
+    scalar = [sr.largest_gap_distance(a, y) for a, y in orders]
+    order_idx = np.repeat(np.arange(len(orders)), [len(a) for a, _ in orders])
+    vector = sr.largest_gap_distances(order_idx, np.concatenate([a for a, _ in orders]),
+                                      np.concatenate([y for _, y in orders]))
+    assert np.allclose(scalar, vector)
 
 
 def test_layout_is_sorted_by_walking_distance_and_large_enough():

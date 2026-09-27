@@ -161,12 +161,111 @@ def s_shape_distances(order_idx: np.ndarray, aisle: np.ndarray, y: np.ndarray) -
 
 
 # ----------------------------------------------------------------------------
+# Return routing (every aisle entered and left from the front - never traversed end to end)
+# ----------------------------------------------------------------------------
+def return_distance(aisles, ys) -> float:
+    """Return-policy route length for ONE order (reference implementation).
+
+    Every aisle containing a pick is entered from the front cross aisle, walked in to its
+    farthest pick, and walked straight back out the way it came - never traversed end to
+    end. The route starts and ends at the depot.
+
+    The horizontal part is 2 * x(rightmost aisle), as in S-shape (the picker still needs to
+    reach the farthest aisle and come back). The vertical part is 2 * the farthest pick,
+    summed over every aisle with a pick (each aisle is walked in and back out once).
+    """
+    farthest = {}
+    for a, y in zip(aisles, ys):
+        farthest[a] = max(farthest.get(a, 0.0), y)
+    horizontal = 2 * (FIRST_AISLE_X_M + AISLE_PITCH_M * max(farthest))
+    vertical = 2 * sum(farthest.values())
+    return horizontal + vertical
+
+
+def return_distances(order_idx: np.ndarray, aisle: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Vectorised Return-policy length for every order (same formula as return_distance)."""
+    picks = pd.DataFrame({"order": order_idx, "aisle": aisle, "y": y})
+    per_aisle = picks.groupby(["order", "aisle"], sort=True, as_index=False)["y"].max()
+    g = per_aisle.groupby("order", sort=True)
+    horizontal = 2 * (FIRST_AISLE_X_M + AISLE_PITCH_M * g["aisle"].max())
+    vertical = 2 * g["y"].sum()
+    return (horizontal + vertical).to_numpy()
+
+
+# ----------------------------------------------------------------------------
+# Largest-gap routing (first/last aisle traversed end to end; middle aisles skip their
+# single largest unpicked gap, entered from both the front and back cross aisle)
+# ----------------------------------------------------------------------------
+def largest_gap_distance(aisles, ys) -> float:
+    """Largest-gap route length for ONE order (reference implementation).
+
+    Standard warehouse-routing heuristic (e.g. Roodbergen & de Koster, 2001): the first and
+    last non-empty aisle, ordered by x, are each traversed end to end, exactly like S-shape.
+    Every aisle strictly between them is entered from BOTH the front and the back cross
+    aisle, walking only up to the boundary of its single largest unpicked gap - the "gap"
+    can also be the stretch between the front cross aisle and the nearest pick, or between
+    the farthest pick and the back cross aisle - and that largest gap is never walked. Its
+    vertical contribution is therefore 2 * (aisle length - largest gap). If only one aisle
+    has picks, there is no "next" aisle to continue on to, so it is entered and left from
+    the front only (2 * farthest pick), the same single-aisle case as S-shape and Return.
+    """
+    picks_by_aisle: dict = {}
+    for a, y in zip(aisles, ys):
+        picks_by_aisle.setdefault(a, []).append(y)
+    non_empty = sorted(picks_by_aisle)
+    horizontal = 2 * (FIRST_AISLE_X_M + AISLE_PITCH_M * non_empty[-1])
+
+    if len(non_empty) == 1:
+        return horizontal + 2 * max(picks_by_aisle[non_empty[0]])
+
+    vertical = 2 * AISLE_LENGTH_M   # first aisle + last aisle, each fully traversed once
+    for a in non_empty[1:-1]:
+        bounds = [0.0] + sorted(picks_by_aisle[a]) + [AISLE_LENGTH_M]
+        largest_gap = max(b - a2 for a2, b in zip(bounds, bounds[1:]))
+        vertical += 2 * (AISLE_LENGTH_M - largest_gap)
+    return horizontal + vertical
+
+
+def largest_gap_distances(order_idx: np.ndarray, aisle: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Vectorised largest-gap length for every order (same policy as largest_gap_distance)."""
+    pts = (pd.DataFrame({"order": order_idx, "aisle": aisle, "y": y})
+             .drop_duplicates(["order", "aisle", "y"])
+             .sort_values(["order", "aisle", "y"], kind="mergesort"))
+    g = pts.groupby(["order", "aisle"], sort=True)
+    gap_before = pts["y"].to_numpy() - g["y"].shift(1).fillna(0.0).to_numpy()
+    is_last_pick = (g.cumcount(ascending=False) == 0).to_numpy()
+    gap_after_last = np.where(is_last_pick, AISLE_LENGTH_M - pts["y"].to_numpy(), 0.0)
+
+    per_aisle = (pts.assign(gap=np.maximum(gap_before, gap_after_last))
+                    .groupby(["order", "aisle"], sort=True)
+                    .agg(farthest_y=("y", "max"), max_gap=("gap", "max"))
+                    .reset_index())
+    per_aisle["rank"] = per_aisle.groupby("order")["aisle"].rank(method="first")
+    n_aisles = per_aisle.groupby("order")["aisle"].transform("size")
+    is_single = (n_aisles == 1).to_numpy()
+    is_edge = ((per_aisle["rank"] == 1) | (per_aisle["rank"] == n_aisles)).to_numpy()
+
+    vertical_contrib = np.select(
+        [is_single, is_edge],
+        [2 * per_aisle["farthest_y"].to_numpy(), np.full(len(per_aisle), AISLE_LENGTH_M)],
+        default=2 * (AISLE_LENGTH_M - per_aisle["max_gap"].to_numpy()))
+
+    g_order = per_aisle.assign(vertical=vertical_contrib).groupby("order", sort=True)
+    horizontal = 2 * (FIRST_AISLE_X_M + AISLE_PITCH_M * g_order["aisle"].max())
+    return (horizontal + g_order["vertical"].sum()).to_numpy()
+
+
+# ----------------------------------------------------------------------------
 # Scenario evaluation
 # ----------------------------------------------------------------------------
-def evaluate(sku_rank, layout, visit_order, visit_sku, near_cut):
-    """Average distance per order (m), total distance (km) and share of picks from near slots."""
+def evaluate(sku_rank, layout, visit_order, visit_sku, near_cut, distance_fn=s_shape_distances):
+    """Average distance per order (m), total distance (km) and share of picks from near slots.
+
+    `distance_fn` defaults to S-shape; Module 5 passes `return_distances` or
+    `largest_gap_distances` to evaluate the same scenario under a different routing policy.
+    """
     slot = sku_rank[visit_sku]
-    dist = s_shape_distances(visit_order, layout["aisle"].to_numpy()[slot], layout["y_m"].to_numpy()[slot])
+    dist = distance_fn(visit_order, layout["aisle"].to_numpy()[slot], layout["y_m"].to_numpy()[slot])
     return dist.mean(), dist.sum() / 1000.0, float((slot < near_cut).mean())
 
 
