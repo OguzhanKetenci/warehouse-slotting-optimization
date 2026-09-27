@@ -58,8 +58,31 @@
 - **Decomposition:** `new_sku_effect_pp = reduction(seen_only_visits) - reduction(all_visits)`, in percentage points. It is the extra decline caused specifically by having to slot SKUs with no ranking history; the remaining gap between the seen-only reduction and the in-sample reduction is ordinary pick-frequency drift among already-known SKUs.
 - **Caveats:** two splits, not a distribution of splits - treat the numbers as indicative, not a confidence interval. The seen-only comparison changes both the numerator (distance) and the order/visit set, so it isolates "what if there were no new SKUs", not a controlled experiment that holds everything else fixed.
 
-## 9. Known limitations
+## 9. Routing sensitivity (Module 5)
+- **Purpose:** Modules 2-4 assume S-shape routing throughout. Module 5 checks whether the ranking of slotting scenarios - and the identity of the best "precision" scenario - is robust to that choice, using two more routing policies and a 4th slotting scenario, on the same layout and the full year of orders (no sampling).
+
+### 9.1 Return routing
+- Every aisle containing a pick is entered from the front cross aisle, walked in to its farthest pick, and walked straight back out - never traversed end to end.
+- Horizontal component: 2 * x(rightmost aisle with a pick), same as S-shape (the picker still has to reach the farthest aisle and come back). Vertical component: 2 * (farthest pick), summed over every aisle with a pick.
+- Verified in `tests/test_routing.py` against two hand-calculated routes (two adjacent aisles, picks at 20 m and at 40 m) that also demonstrate the crossover with S-shape: at 20 m Return is shorter (89 m vs. 109 m); at 40 m S-shape is shorter (109 m vs. 169 m), because S-shape's cost does not depend on pick depth while Return's does.
+
+### 9.2 Largest-gap routing
+- Standard heuristic (e.g. Roodbergen & de Koster, 2001): the first and last non-empty aisle (by x) are each traversed end to end, like S-shape. Every aisle strictly between them is entered from **both** the front and the back cross aisle, walking only up to the boundary of its single largest unpicked gap - the gap can also be the stretch between the front cross aisle and the nearest pick, or between the farthest pick and the back cross aisle - and that largest gap is never walked.
+- A middle aisle's vertical contribution is 2 * (aisle length - largest gap). If there is only one non-empty aisle in the order, it is entered and left from the front only (2 * farthest pick) - the same single-aisle case as S-shape and Return. Horizontal component: 2 * x(rightmost aisle), unchanged.
+- Verified against two hand-calculated 3-aisle routes (an internal gap between two picks, and a gap at the front boundary of the middle aisle: 155 m and 125 m) and against largest-gap reducing to the same value as S-shape when there is no middle aisle to skip a gap in (2 aisles: 115 m both ways).
+
+### 9.3 Aisle-based velocity (4th slotting scenario)
+- SKUs are ranked by pick frequency, as in Full velocity. Unlike Full velocity, which ranks ALL slots of the warehouse by straight-line walking distance, this ranks slots aisle by aisle: the fastest SKUs fill aisle 0 completely (both racks, 100 slots, nearest positions first) before any SKU is placed in aisle 1, and so on. Deterministic, one run.
+- Motivation: a simpler rule than a full distance ranking - "fill the nearest aisle, then the next" - that a warehouse could implement without computing exact walking distance for every slot.
+
+### 9.4 Evaluation grid and result
+- 4 scenarios (Random, Class-based ABC, Full velocity, Aisle-based velocity) x 3 routing policies (S-shape, Return, Largest gap), on all 19,773 orders of the last 12 months. Random and Class-based ABC use the same 10 seeds as Module 2. Reduction = 1 - distance of the scenario / mean distance of the random seeds **under the same routing policy** - each routing policy has its own random baseline, since absolute distances are not comparable across policies.
+- Before writing any output, the script re-reads `data/processed/scenario_results.csv` and asserts that S-shape x {Random, Class-based ABC, Full velocity} matches it exactly (933 / 707 / 635 m).
+- **Result: the best-performing scenario is not the same under every routing policy.** Aisle-based velocity is shortest under S-shape (587 m, -37.1%) and Largest gap (493 m, -31.9%); Full velocity is shortest under Return (593 m, -43.6%), where Aisle-based velocity is worse than Full velocity but still beats Class-based ABC (695 m vs. 714 m). Mechanism: S-shape and Largest gap charge a cost per aisle visited that is close to fixed (a full traversal, or up to the largest gap) almost regardless of pick depth, so minimising the *number of aisles touched* - what Aisle-based velocity does, by packing fast SKUs into complete aisles - matters more than minimising raw walking distance. Return's cost is a direct there-and-back distance to each pick, which is exactly what Full velocity's ranking criterion (straight-line distance from the depot) is built to minimise.
+- Class-based ABC stays a robust middle choice under all three policies (-20.0% to -32.0% vs. random), without needing to know which routing heuristic the warehouse actually uses.
+
+## 10. Known limitations
 - The layout is synthetic; absolute distances depend on its dimensions, relative differences between scenarios on the layout shape and order size.
 - The main results (Modules 2-3) are in-sample, which favours the velocity-based scenarios; the out-of-sample check (section 8) shows a realistic saving is roughly half of the in-sample figures, and that most of the gap is attributable to SKUs with no pick history rather than to the ranking method itself.
-- Zones for class-based slotting follow walking distance from the depot; aisle-based zoning and co-occurrence-based slotting were not tested.
+- Zones for class-based slotting follow walking distance from the depot, not aisle boundaries; an aisle-based ranking was tested only as a 4th, separate scenario (section 9.3), not as an alternative zoning for class-based ABC. Co-occurrence-based slotting was not tested.
 - No batching, congestion, item size or rack capacity constraints, and no re-slotting cost.

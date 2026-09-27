@@ -70,6 +70,24 @@ The two splits - built from non-overlapping years of data - agree closely (class
 
 ![In-sample vs. out-of-sample](reports/figures/05_in_vs_out_of_sample.png)
 
+### Routing sensitivity (Module 5)
+
+Everything above assumes **S-shape** routing (every aisle with a pick is walked end to end). Module 5 asks: **does the best slotting method change with the routing policy?** It adds two more routing heuristics - **Return** (every aisle is entered from the front and left the way it came, never traversed end to end) and **Largest gap** (the first and last aisle are traversed end to end; every aisle between them skips its single largest unpicked gap, entered from both ends) - and a 4th, simpler slotting rule, **Aisle-based velocity** (the fastest SKUs fill the nearest aisle completely before moving to the next, rather than being ranked by exact walking distance). All 19,773 orders of the last 12 months, same layout as above.
+
+| Routing policy | Random | Class-based ABC | Full velocity | Aisle-based velocity |
+|---|---|---|---|---|
+| S-shape | 933 m | 707 m (-24.3%) | 635 m (-32.0%) | **587 m (-37.1%)** |
+| Return | 1,051 m | 714 m (-32.0%) | **593 m (-43.6%)** | 695 m (-33.9%) |
+| Largest gap | 724 m | 579 m (-20.0%) | 510 m (-29.6%) | **493 m (-31.9%)** |
+
+*(% = reduction vs. the random baseline of the same routing policy - absolute distances are not comparable across policies. Bold = shortest non-random scenario per row.)*
+
+![Routing sensitivity](reports/figures/06_routing_sensitivity.png)
+
+- **Yes, the best-performing scenario changes with the routing policy.** Aisle-based velocity is shortest under S-shape and Largest gap; Full velocity is shortest under Return (where Aisle-based velocity is worse than Full velocity, but still beats Class-based ABC).
+- **Why:** S-shape and Largest gap charge a cost per aisle visited that is close to fixed (a full traversal, or up to the largest gap) almost regardless of pick depth, so minimising the *number of aisles touched* - what Aisle-based velocity does by packing fast SKUs into complete aisles - matters more than minimising raw walking distance. Return's cost is a direct there-and-back distance to each pick, exactly what Full velocity's ranking (straight-line distance from the depot) is built to minimise.
+- **Class-based ABC stays a robust middle choice under all three policies** (-20.0% to -32.0% vs. random) - this is why the recommendation above does not depend on knowing which routing heuristic a real warehouse uses. The choice between the two more precise methods (Full velocity vs. Aisle-based velocity) does depend on it: prefer Full velocity if pickers tend to backtrack (Return-like), Aisle-based velocity - a simpler rule than a full distance ranking - if they loop through aisles (S-shape/Largest-gap-like).
+
 ### Order profile (Module 1)
 
 - 33.6% of SKUs generate 80% of pick lines. 28.7% of SKUs land in a different ABC class by revenue than by pick frequency.
@@ -87,6 +105,7 @@ The two splits - built from non-overlapping years of data - agree closely (class
 | 2 | **Slotting & routing:** synthetic warehouse layout, random / class-based ABC / full-velocity slotting, S-shape picking route distance | ✅ Done |
 | 3 | **KPI framework:** before/after comparison of travel distance and related warehouse KPIs in an Excel workbook | ✅ Done |
 | 4 | **Out-of-sample check:** two independent history/future splits, plus a new-SKU vs. frequency-drift decomposition | ✅ Done |
+| 5 | **Routing sensitivity:** Return and largest-gap routing policies, a 4th aisle-based-velocity scenario, 4x3 evaluation grid | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -112,6 +131,7 @@ python src/01_order_profile_abc.py     # order profile, ABC classes, cleaned lin
 python src/02_slotting_routing.py      # layout, 3 slotting scenarios, S-shape distances (~10 s)
 python src/03_kpi_summary.py           # reports/kpi_summary.xlsx
 python src/04_out_of_sample_check.py   # in-sample vs. out-of-sample savings (~10 s)
+python src/05_routing_sensitivity.py   # 4 scenarios x 3 routing policies (~20 s)
 
 # Tests (the S-shape distance is checked against hand-calculated routes)
 python -m pytest tests/                # or: python tests/test_routing.py
@@ -121,10 +141,10 @@ python -m pytest tests/                # or: python tests/test_routing.py
 
 - Order data is **real** (UCI Online Retail II); the warehouse layout is **synthetic**, since the source retailer's layout is not public. Results depend on the layout parameters (constants at the top of `src/02_slotting_routing.py`).
 - Layout: 40 aisles x 2 racks x 50 slots (4,000 slots for 3,791 SKUs), 50 m aisles, 3 m aisle pitch, depot at the left end of the front cross aisle. Cross-aisle width and lateral movement inside an aisle are ignored.
-- Picking routes use the S-shape heuristic, a common industry baseline rather than an optimal route. One picker per order; no batching, congestion or zone picking.
+- Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. One picker per order; no batching, congestion or zone picking.
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
-- **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is roughly -13% (class-based) and -18% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check below), not a flaw in velocity-based slotting itself.
+- **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is roughly -13% (class-based) and -18% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
 - Item dimensions, weight, rack capacity, replenishment and the cost of re-slotting are not modelled.
 
 ## Author
