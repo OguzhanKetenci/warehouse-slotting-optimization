@@ -8,7 +8,7 @@
 
 - **Full-year, in-sample** (Modules 2-3): re-slotting cuts average picker travel distance by **-24.3%** (class-based ABC) to **-32.0%** (full velocity) vs. a random layout.
 - **Year-over-year, out-of-sample** (Module 4 - rank on the prior year, evaluate on the next): the realistic saving is roughly **-13%** (class-based) to **-19%** (full velocity); most of the gap versus the in-sample figures is the cost of slotting brand-new SKUs, not a weaker ranking.
-- **Recommendation:** class-based ABC slotting, re-slotted periodically (e.g. once a year), plus a separate rule for new SKUs (provisional placement, then a fast re-check after the first weeks of sales) - it captures most of the achievable saving with far less operational complexity than full velocity.
+- **Recommendation (updated by Module 6's move-cost analysis):** below roughly 4 minutes of labour per SKU moved, a threshold-based hybrid re-slotting policy - the nearest ~500 SKUs individually placed by velocity, the rest zoned A/B/C, only SKUs that cross a class or top-500 boundary get physically moved - gives the lowest total cost (walking + move labour). Above ~4 minutes, a one-time full-velocity ranking that is *never* updated again is cheaper, because it already beats the previously recommended static class-based ABC on distance at zero ongoing moves. Either way, pair it with a new-SKU rule (place unseen SKUs at the front of the B zone, not the back).
 
 ## Business Problem
 
@@ -88,6 +88,37 @@ Everything above assumes **S-shape** routing (every aisle with a pick is walked 
 - **Why:** S-shape and Largest gap charge a cost per aisle visited that is close to fixed (a full traversal, or up to the largest gap) almost regardless of pick depth, so minimising the *number of aisles touched* - what Aisle-based velocity does by packing fast SKUs into complete aisles - matters more than minimising raw walking distance. Return's cost is a direct there-and-back distance to each pick, exactly what Full velocity's ranking (straight-line distance from the depot) is built to minimise.
 - **Class-based ABC stays a robust middle choice under all three policies** (-20.0% to -32.0% vs. random) - this is why the recommendation above does not depend on knowing which routing heuristic a real warehouse uses. The choice between the two more precise methods (Full velocity vs. Aisle-based velocity) does depend on it: prefer Full velocity if pickers tend to backtrack (Return-like), Aisle-based velocity - a simpler rule than a full distance ranking - if they loop through aisles (S-shape/Largest-gap-like).
 
+### Re-slotting policies (Module 6)
+
+Every result above compares one-time layouts. Real warehouses keep operating while pick frequencies drift, so re-slotting has a recurring cost: every SKU that changes slot has to be physically moved. Module 6 simulates a full evaluation year (Dec 2010 - Nov 2011, Module 4's year-over-year setup) month by month, updating each policy's layout using only a rolling 12-month window of data available *as of* that month (no look-ahead), and counts how many SKUs move at each update.
+
+| Policy | Params | Avg. distance/order | Annual moves | Total h/year @ 2 min/move | @ 5 min/move | @ 10 min/move |
+|---|---|---|---|---|---|---|
+| Random (baseline) | – | 933 m | 0 | 4,913 | 4,913 | 4,913 |
+| Oracle (look-ahead)¹ | – | 634 m | 0 | 3,340 | 3,340 | 3,340 |
+| P1 Static ABC | – | 816 m | 0 | 4,296 | 4,296 | 4,296 |
+| P2 Static full velocity | – | 760 m | 0 | 4,001 | **4,001** | **4,001** |
+| P3 Hybrid static | N=500 (best of 50-500) | 783 m | 0 | 4,124 | 4,124 | 4,124 |
+| P4 Periodic full velocity | monthly | 691 m | 40,161 | 4,975 | 6,983 | 10,330 |
+| P4 Periodic full velocity | quarterly | 722 m | 11,232 | 4,176 | 4,738 | 5,674 |
+| P5 Periodic hybrid | N=500, monthly | 728 m | 2,300 | 3,911 | 4,026 | 4,217 |
+| P5 Periodic hybrid | N=500, quarterly | 747 m | 1,419 | 3,979 | 4,050 | 4,168 |
+| P6 Threshold-based | N=500, T=25 | 725 m | 4,131 | 3,955 | 4,161 | 4,506 |
+| P6 Threshold-based | N=500, T=50 | 724 m | 3,274 | 3,923 | 4,087 | 4,360 |
+| P6 Threshold-based | N=500, T=100 | 725 m | 2,706 | **3,910** | 4,046 | 4,271 |
+| P7 P1 + new-SKU-to-B | – | 764 m | 0 | 4,025 | 4,025 | 4,025 |
+
+¹ Full velocity ranked on the evaluation year's own frequency - not achievable without foresight, an upper bound only, not a candidate policy. P7's own totals (0 moves, so constant across columns) are shown for the new-SKU comparison; **P2 (4,001 h, also constant) is the actual cheapest policy at 5 and 10 min/move**, ahead of every throttled hybrid - see the sensitivity discussion below. Bold = lowest total cost per column among all policies (not shown again for P2's repeated 4,001 at 5/10 min to avoid double-bolding).
+
+![Re-slotting trade-off](reports/figures/07_reslotting_tradeoff.png)
+
+**Does the best policy change with the assumed move cost, and how sensitive is the answer?** Yes, and the crossover is precise: **P6 (threshold-based, N=500, T=100)** and **P5 (periodic hybrid, N=500, monthly)** are in a practical tie for cheapest at 2 minutes/move (3,910 h vs. 3,911 h/year); **P2 (static full velocity, never updated)** overtakes both once a move costs more than about **4.0-4.4 minutes** of labour - below that, a small number of well-targeted moves (2,300-2,706/year - 93-94% fewer than P4's 40,161 full monthly re-rank) pays for itself; above it, doing nothing after the initial ranking wins.
+
+- **Plain class-based ABC (P1) is dominated at every move-time tested** - both P2 and every throttled hybrid (P5/P6) beat it on total cost, since P1's only advantage was assumed operational simplicity, and a one-time full-velocity ranking is no harder to set up once. This is why the TL;DR recommendation was updated (see above).
+- **Full monthly re-ranking (P4) is never worth it in this cost range**: even at 2 minutes/move it costs 4,975 h/year (worse than every throttled or static alternative), because strict individual velocity ranking reshuffles most of the catalogue's long tail every month (40,161 moves/year, ~96% of SKUs on average) from small frequency ties shifting - a known weakness of ranking every SKU individually rather than in zones.
+- **The new-SKU rule (P7) meaningfully helps a static ABC layout** (764 m vs. 816 m for plain P1) but still doesn't close the gap to full velocity (760 m) or the throttled hybrids (~725-728 m); applying the same rule to P4 (monthly) makes no difference, because pure full-velocity ranking has no B zone for a new SKU to be inserted into.
+- N=500 was the best of the tested grid {50, 100, 200, 300, 500} for both the static hybrid (P3) and the N reused by P5/P6 - the improvement was still increasing at N=500, so a larger N might do even better; this was not tested (see methodology).
+
 ### Order profile (Module 1)
 
 - 33.6% of SKUs generate 80% of pick lines. 28.7% of SKUs land in a different ABC class by revenue than by pick frequency.
@@ -106,6 +137,7 @@ Everything above assumes **S-shape** routing (every aisle with a pick is walked 
 | 3 | **KPI framework:** before/after comparison of travel distance and related warehouse KPIs in an Excel workbook | ✅ Done |
 | 4 | **Out-of-sample check:** two independent history/future splits, plus a new-SKU vs. frequency-drift decomposition | ✅ Done |
 | 5 | **Routing sensitivity:** Return and largest-gap routing policies, a 4th aisle-based-velocity scenario, 4x3 evaluation grid | ✅ Done |
+| 6 | **Re-slotting policies:** 7 update policies simulated month by month with a move-cost/distance trade-off | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -132,6 +164,7 @@ python src/02_slotting_routing.py      # layout, 3 slotting scenarios, S-shape d
 python src/03_kpi_summary.py           # reports/kpi_summary.xlsx
 python src/04_out_of_sample_check.py   # in-sample vs. out-of-sample savings (~10 s)
 python src/05_routing_sensitivity.py   # 4 scenarios x 3 routing policies (~20 s)
+python src/06_reslotting_policies.py   # 7 re-slotting policies, simulated month by month (~4 min)
 
 # Tests (the S-shape distance is checked against hand-calculated routes)
 python -m pytest tests/                # or: python tests/test_routing.py
@@ -145,7 +178,8 @@ python -m pytest tests/                # or: python tests/test_routing.py
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
 - **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is roughly -13% (class-based) and -18% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
-- Item dimensions, weight, rack capacity, replenishment and the cost of re-slotting are not modelled.
+- Item dimensions, weight, rack capacity and replenishment are not modelled. The labour cost of re-slotting itself *is* modelled in Module 6 (move counts x an assumed minutes-per-move), but only as a simple linear cost - no truck/labour scheduling, batching of moves, or SKU handling difficulty.
+- Module 6's rolling-window monthly updates assume a warehouse can recompute pick frequency and physically execute moves essentially overnight; it does not model the lag between deciding to re-slot and completing the move.
 
 ## Author
 
