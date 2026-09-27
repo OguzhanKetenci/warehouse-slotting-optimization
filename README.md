@@ -4,13 +4,19 @@
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![pandas](https://img.shields.io/badge/pandas-data%20analysis-150458) ![Status](https://img.shields.io/badge/status-completed-brightgreen)
 
+## TL;DR
+
+- **Full-year, in-sample** (Modules 2-3): re-slotting cuts average picker travel distance by **-24.3%** (class-based ABC) to **-32.0%** (full velocity) vs. a random layout.
+- **Year-over-year, out-of-sample** (Module 4 - rank on the prior year, evaluate on the next): the realistic saving is roughly **-13%** (class-based) to **-19%** (full velocity); most of the gap versus the in-sample figures is the cost of slotting brand-new SKUs, not a weaker ranking.
+- **Recommendation:** class-based ABC slotting, re-slotted periodically (e.g. once a year), plus a separate rule for new SKUs (provisional placement, then a fast re-check after the first weeks of sales) - it captures most of the achievable saving with far less operational complexity than full velocity.
+
 ## Business Problem
 
 In a warehouse with thousands of SKUs, most of a picker's time is spent **walking**, not picking. If fast-moving items are stored far from the dispatch area, every order costs extra travel time and labour.
 
 **Question:** How much can picker travel distance be reduced by re-slotting SKUs based on how often they are picked?
 
-## Key Results
+## Key Results (Modules 2 & 3)
 
 Real orders (UCI Online Retail II, last 12 months: 19,773 orders, 3,791 SKUs) routed with the S-shape heuristic through a synthetic 40-aisle warehouse.
 
@@ -31,7 +37,7 @@ Real orders (UCI Online Retail II, last 12 months: 19,773 orders, 3,791 SKUs) ro
 
 ![Pick density, random vs. full velocity](reports/figures/04_heatmap_random_vs_velocity.png)
 
-Full tables: `reports/kpi_summary.xlsx` (KPI summary, assumptions, slot assignment of the 100 fastest SKUs).
+Module 3 – Full tables: `reports/kpi_summary.xlsx` (KPI summary, assumptions, slot assignment of the 100 fastest SKUs).
 
 ### Out-of-sample check (Module 4)
 
