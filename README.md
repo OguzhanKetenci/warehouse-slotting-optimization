@@ -6,9 +6,9 @@
 
 ## TL;DR
 
-- **Full-year, in-sample** (Modules 2-3): re-slotting cuts average picker travel distance by **-24.3%** (class-based ABC) to **-32.0%** (full velocity) vs. a random layout.
-- **Year-over-year, out-of-sample** (Module 4 - rank on the prior year, evaluate on the next): the realistic saving is roughly **-13%** (class-based) to **-19%** (full velocity); most of the gap versus the in-sample figures is the cost of slotting brand-new SKUs, not a weaker ranking.
-- **Recommendation (refined by Module 6's move-cost analysis):** start from ABC zoning with new SKUs placed at the front of the B zone instead of the back - already 816 m -> 764 m per order for zero ongoing moves. If moving a SKU costs well under ~4 minutes of labour, add a threshold-based hybrid on top (ABC zones plus the fastest 500 SKUs individually sequenced, checked monthly, a SKU moves only if its class changes or its rank drifts by more than 100 positions): 725 m per order for about 2,706 moves/year (roughly 10 a working day). If moves are expensive, skip that layer and use a one-time full-velocity ranking instead: 760 m per order, zero ongoing moves. The ~4-minute crossover assumes 1.0 m/s walking and counts only walking time; product size and rack capacity are not modelled, and ABC zones tend to accommodate those real constraints more flexibly than an individually sequenced ranking.
+- **Problem:** How much picker walking can be saved by storing frequently picked SKUs closer to dispatch? Real orders (19,773 orders, 3,791 SKUs, UCI Online Retail II) routed through a synthetic 40-aisle warehouse.
+- **Result:** -24% (class-based ABC) to -32% (full velocity) vs. a random layout in-sample; **-13% to -19%** when SKUs are ranked on the prior year and evaluated on the next. Most of that gap comes from new SKUs with no pick history.
+- **Recommendation:** ABC zoning with new SKUs placed at the front of the B zone (zero moves, 816 -> 764 m per order). If moving a SKU takes under ~4 minutes, also re-slot only the fastest 500 SKUs when their rank drifts (~10 moves per working day, 725 m per order).
 
 ## Business Problem
 
@@ -53,7 +53,7 @@ The table above ranks SKUs with the same orders it evaluates. Module 4 checks ho
 | Full velocity | 6+6 months | -35.0% | **-18.3%** |
 | Full velocity | Year-over-year | -32.0% | **-18.6%** |
 
-The two splits - built from non-overlapping years of data - agree closely (class-based -13.3% vs. -12.6%; full velocity -18.3% vs. -18.6%). **We treat the year-over-year split as the primary out-of-sample estimate**, because it compares two equal 12-month windows (no seasonal imbalance between the ranking and evaluation periods) and matches how a warehouse would actually re-slot - once a year, on the prior year's data. The 6+6 split is a robustness check and reaches the same conclusion.
+The two splits - built from non-overlapping years of data - agree closely (class-based -13.3% vs. -12.6%; full velocity -18.3% vs. -18.6%). **The year-over-year split is used as the primary out-of-sample estimate**, because it compares two equal 12-month windows (no seasonal imbalance between the ranking and evaluation periods) and matches how a warehouse would actually re-slot - once a year, on the prior year's data. The 6+6 split is a robustness check and reaches the same conclusion.
 
 **Where does the rest of the in-sample saving go?** Each out-of-sample scenario was evaluated a second time, excluding visits to SKUs never picked in the ranking period ("seen-only visits"), against its own random baseline computed the same way:
 
@@ -108,7 +108,7 @@ Every result above compares one-time layouts. Real warehouses keep operating whi
 | P6 Threshold-based | N=500, T=100 | 725 m | 2,706 | **3,910** | 4,046 | 4,271 |
 | P7 P1 + new-SKU-to-B | – | 764 m | 0 | 4,025 | 4,025 | 4,025 |
 
-¹ Full velocity ranked on the evaluation year's own frequency - not achievable without foresight, an upper bound only, not a candidate policy. P7's own totals (0 moves, so constant across columns) are shown for the new-SKU comparison; **P2 (4,001 h, also constant) is the actual cheapest policy at 5 and 10 min/move**, ahead of every throttled hybrid - see the sensitivity discussion below. Bold = lowest total cost per column among all policies (not shown again for P2's repeated 4,001 at 5/10 min to avoid double-bolding).
+¹ Oracle ranks SKUs on the evaluation year itself, which requires foresight; shown as an upper bound, not a candidate policy. Bold = cheapest policy per move-cost column.
 
 ![Re-slotting trade-off](reports/figures/07_reslotting_tradeoff.png)
 
@@ -179,7 +179,7 @@ python -m pytest tests/                # or: python tests/test_routing.py
 - Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. One picker per order; no batching, congestion or zone picking.
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
-- **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is roughly -13% (class-based) and -18% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
+- **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is -13% (class-based) and -19% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
 - Item dimensions, weight, rack capacity and replenishment are not modelled. The labour cost of re-slotting itself *is* modelled in Module 6 (move counts x an assumed minutes-per-move), but only as a simple linear cost - no truck/labour scheduling, batching of moves, or SKU handling difficulty.
 - Module 6's rolling-window monthly updates assume a warehouse can recompute pick frequency and physically execute moves essentially overnight; it does not model the lag between deciding to re-slot and completing the move.
 
