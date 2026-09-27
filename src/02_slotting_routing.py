@@ -59,12 +59,14 @@ INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 # ----------------------------------------------------------------------------
 # Layout
 # ----------------------------------------------------------------------------
-def build_layout() -> pd.DataFrame:
+def build_layout(n_aisles: int = N_AISLES) -> pd.DataFrame:
     """All slots, sorted by walking distance from the depot (row index = slot rank, 0 = nearest).
 
     Ties are broken by aisle, then position, then side, so the ordering is deterministic.
+    `n_aisles` defaults to the module constant; Module 4 passes a larger value if a SKU universe
+    restricted to fewer SKUs than the full catalogue still needs more slots than the default layout.
     """
-    aisle, side, pos = np.meshgrid(np.arange(N_AISLES), np.arange(SIDES_PER_AISLE),
+    aisle, side, pos = np.meshgrid(np.arange(n_aisles), np.arange(SIDES_PER_AISLE),
                                    np.arange(SLOTS_PER_SIDE), indexing="ij")
     layout = pd.DataFrame({"aisle": aisle.ravel(), "side": side.ravel(), "pos": pos.ravel()})
     layout["x_m"] = FIRST_AISLE_X_M + AISLE_PITCH_M * layout["aisle"]

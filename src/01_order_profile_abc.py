@@ -24,9 +24,9 @@ FIG.mkdir(parents=True, exist_ok=True)
 A_CUTOFF, B_CUTOFF = 0.80, 0.95  # cumulative share thresholds for ABC
 
 
-def load_and_clean(path: Path) -> pd.DataFrame:
-    """Load the last 12 months and keep only valid product order lines."""
-    df = pd.read_excel(path, sheet_name="Year 2010-2011")
+def load_and_clean(path: Path, sheet_name: str = "Year 2010-2011") -> pd.DataFrame:
+    """Load one sheet and keep only valid product order lines. Default sheet: the last 12 months."""
+    df = pd.read_excel(path, sheet_name=sheet_name)
     df.columns = ["Invoice", "StockCode", "Description", "Quantity",
                   "InvoiceDate", "Price", "CustomerID", "Country"]
     n_raw = len(df)
