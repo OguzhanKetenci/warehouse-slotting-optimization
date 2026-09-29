@@ -308,8 +308,14 @@ def summarize(rows: pd.DataFrame) -> pd.DataFrame:
 # Figure: distance vs. moves trade-off, with the Pareto frontier
 # ----------------------------------------------------------------------------
 def pareto_frontier(points: pd.DataFrame) -> pd.DataFrame:
-    """Points (fewer moves, shorter distance = better) that are not dominated by any other point."""
-    pts = points.sort_values("annual_moves")
+    """Points (fewer moves, shorter distance = better) that are not dominated by any other point.
+
+    Ties in annual_moves (e.g. every static policy sits at 0) must be broken by distance ascending
+    before the running-min sweep, otherwise whichever tied point happens to sort first gets kept
+    regardless of whether a cheaper point at the SAME move count exists (e.g. P1/P3/P7 all sit at
+    0 moves alongside P2, which has the shortest distance there and should be the only one kept).
+    """
+    pts = points.sort_values(["annual_moves", "avg_distance_per_order_m"], kind="mergesort")
     best_so_far = np.inf
     keep = []
     for _, row in pts.iterrows():
@@ -321,28 +327,56 @@ def pareto_frontier(points: pd.DataFrame) -> pd.DataFrame:
     return pts[keep]
 
 
+# Only these 9 points get a text label (everything else - P3's N grid, P5 quarterly, P6 T=25/50 -
+# stays plotted as a dot, unlabelled). Each entry is (dx, dy) in offset points from the point, plus
+# horizontal/vertical text alignment, hand-tuned against the rendered PNG so no label overlaps
+# another label or a data point (see the module docstring / methodology for the rationale).
+LABEL_SPEC = {
+    ("Random (baseline)", ""): ("Random (baseline)", 55, 14, "left", "center"),
+    ("Oracle (full velocity, look-ahead)", ""): ("Oracle (look-ahead)", 55, -10, "left", "center"),
+    ("P1 Static ABC", ""): ("P1 Static ABC", 68, 32, "left", "center"),
+    ("P7 P1 + new-SKU-to-B", ""): ("P7 P1 + new-SKU-to-B", 75, 2, "left", "center"),
+    ("P2 Static full velocity", ""): ("P2 Static full velocity", 80, -28, "left", "center"),
+    ("P5 Periodic hybrid", "N=500, monthly"): ("P5 Hybrid, monthly", -20, 46, "center", "bottom"),
+    ("P6 Threshold-based", "N=500, T=100"): ("P6 Threshold, T=100", 55, -42, "left", "center"),
+    ("P4 Periodic full velocity", "quarterly"): ("P4 Full velocity, quarterly", 0, 42, "center", "bottom"),
+    ("P4 Periodic full velocity", "monthly"): ("P4 Full velocity, monthly", 0, -48, "center", "top"),
+}
+
+
 def plot_tradeoff(results: pd.DataFrame, path: Path) -> None:
     policies = results[results["role"] == "policy"]
-    fig, ax = plt.subplots(figsize=(9, 6.2))
-    for role, color, marker in (("reference", ROLE_COLOR["reference"], "s"), ("oracle", ROLE_COLOR["oracle"], "*")):
-        sub = results[results["role"] == role]
-        ax.scatter(sub["annual_moves"], sub["avg_distance_per_order_m"], color=color, marker=marker,
-                  s=90 if role == "oracle" else 70, zorder=3, label=("Random (baseline)" if role == "reference" else "Oracle (look-ahead, not a policy)"))
+    reference = results[results["role"] == "reference"]
+    oracle = results[results["role"] == "oracle"]
+
+    fig, ax = plt.subplots(figsize=(10.5, 7))
+    # 0-40,161 moves on a linear axis crushes the 1,419-4,131 throttled cluster into <10% of the
+    # plot width. symlog spaces that cluster out by relative (multiplicative) difference instead,
+    # without needing a second embedded coordinate system (an inset would have to fit its own
+    # dots, labels and leader lines inside a small box, risking the same overlap problem again).
+    # linthresh keeps 0 (every static policy) on a plain linear segment near the origin.
+    ax.set_xscale("symlog", linthresh=300, linscale=0.6)
+
+    ax.scatter(reference["annual_moves"], reference["avg_distance_per_order_m"], color=ROLE_COLOR["reference"],
+              marker="s", s=70, zorder=3, label="Random (baseline)")
+    ax.scatter(oracle["annual_moves"], oracle["avg_distance_per_order_m"], color=ROLE_COLOR["oracle"],
+              marker="*", s=110, zorder=3, label="Oracle (look-ahead, not a policy)")
     ax.scatter(policies["annual_moves"], policies["avg_distance_per_order_m"], color=ROLE_COLOR["policy"],
               s=55, zorder=3, label="Candidate policy (P1-P7)")
 
-    frontier = pareto_frontier(pd.concat([policies, results[results["role"] == "reference"]]))
+    frontier = pareto_frontier(pd.concat([policies, reference]))
     ax.plot(frontier["annual_moves"], frontier["avg_distance_per_order_m"], color=INK, lw=1.3,
            ls="--", zorder=2, label="Efficient frontier")
 
-    # Label only the efficient-frontier points plus Random/Oracle - labelling every dominated
-    # point (mostly the static N=0..500 cluster near x=0) makes the chart unreadable.
-    to_label = pd.concat([frontier, results[results["role"].isin(["reference", "oracle"])]]).drop_duplicates(
-        subset=["policy", "params"])
-    for _, row in to_label.iterrows():
-        ax.annotate(row["policy"] if row["params"] == "" else f"{row['policy']} ({row['params']})",
-                   (row["annual_moves"], row["avg_distance_per_order_m"]), fontsize=7.5, color=INK_MUTED,
-                   xytext=(5, 4), textcoords="offset points")
+    for _, row in results.iterrows():
+        spec = LABEL_SPEC.get((row["policy"], row["params"]))
+        if spec is None:
+            continue
+        text, dx, dy, ha, va = spec
+        ax.annotate(text, xy=(row["annual_moves"], row["avg_distance_per_order_m"]),
+                   xytext=(dx, dy), textcoords="offset points", fontsize=8.3, color=INK, ha=ha, va=va,
+                   arrowprops=dict(arrowstyle="-", color=INK_MUTED, lw=0.8, shrinkA=0, shrinkB=4,
+                                   connectionstyle="arc3,rad=0.08"))
 
     ax.set_xlabel("Annual moves (SKUs re-slotted)", color=INK_MUTED)
     ax.set_ylabel("Avg. distance per order (m)", color=INK_MUTED)
