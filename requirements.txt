@@ -2,3 +2,5 @@ numpy>=1.26,<2
 pandas>=2.2,<3
 openpyxl>=3.1,<4
 matplotlib>=3.9,<4
+scipy>=1.13,<2
+ortools>=9.9,<9.10   # 9.10+ conflicts with the installed protobuf 4.25 (pip would upgrade it)
