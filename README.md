@@ -2,7 +2,7 @@
 
 > Velocity-based slotting analysis on real order data to reduce picker travel distance, with a KPI framework to measure the improvement.
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue) ![pandas](https://img.shields.io/badge/pandas-data%20analysis-150458) ![Status](https://img.shields.io/badge/status-completed-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.10+-blue) ![pandas](https://img.shields.io/badge/pandas-data%20analysis-150458) ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 
 ## TL;DR
 
@@ -121,6 +121,36 @@ Every result above compares one-time layouts. Real warehouses keep operating whi
 - **Full monthly re-ranking (P4) is never worth it in this cost range**: even at 2 minutes/move it costs 4,975 h/year (worse than every other candidate), because strict individual velocity ranking reshuffles most of the catalogue's long tail every month (40,161 moves/year, ~96% of SKUs on average) from small frequency ties shifting - a known weakness of ranking every SKU individually rather than in zones.
 - N=500 was the best of the tested grid {50, 100, 200, 300, 500} for both the static hybrid (P3) and the N reused by P5/P6 - the improvement was still increasing at N=500, so a larger N might do even better; this was not tested (see methodology).
 
+### Optimal routing (Module 7)
+
+Modules 2-6 route orders with simple rules. Module 7 asks **how far those rules are from the shortest possible route, and whether the best slotting method changes once routing is optimal.** The warehouse is modelled as a graph (same 40-aisle layout; nodes = depot, pick locations and aisle ends; edges = aisle segments and the front/back cross aisles). Every order is solved as a travelling-salesman problem with Google OR-Tools. A 5th rule is added, **Combined** (each aisle is either traversed end to end or entered and left from the same side, whichever is shorter, chosen by dynamic programming over the picker's side). All 19,773 orders; Random and Class-based ABC use **3 seeds** (0-2) instead of 10, because a 10-seed run did not fit the 30-minute budget (see methodology).
+
+| Routing | Random | Class-based ABC | Full velocity | Aisle-based velocity |
+|---|---|---|---|---|
+| S-shape | 934 m | 708 m (-24.3%) | 635 m (-32.1%) | **587 m (-37.2%)** |
+| Return | 1,054 m | 716 m (-32.1%) | **593 m (-43.8%)** | 695 m (-34.1%) |
+| Largest gap | 720 m | 578 m (-19.7%) | 510 m (-29.2%) | **493 m (-31.6%)** |
+| Combined | 772 m | 573 m (-25.7%) | **496 m (-35.7%)** | 503 m (-34.9%) |
+| **Optimal** | 684 m | 531 m (-22.4%) | 462 m (-32.4%) | **454 m (-33.6%)** |
+
+*(% = change vs. the random baseline of the same routing policy. Bold = shortest non-random scenario per row. Random and Class-based ABC: mean of 3 seeds, so their S-shape/Return/Largest-gap values differ slightly from the 10-seed Module 5 table above; the deterministic scenarios match it exactly.)*
+
+**How much longer than optimal is each rule?** Per order, rule / optimal - 1, averaged over all orders (median in brackets):
+
+| Routing | Random | Class-based ABC | Full velocity | Aisle-based velocity |
+|---|---|---|---|---|
+| S-shape | +34.7% (+36.7%) | +33.0% (+33.1%) | +41.6% (+38.2%) | +29.3% (+28.3%) |
+| Return | +45.2% (+48.0%) | +28.9% (+29.5%) | +21.1% (+19.3%) | +44.9% (+46.8%) |
+| Largest gap | **+4.4% (+3.0%)** | +8.7% (+7.0%) | +13.7% (+8.0%) | **+8.0% (+5.4%)** |
+| Combined | +11.8% (+11.5%) | **+7.4% (+5.9%)** | **+6.5% (+4.5%)** | +10.4% (+8.5%) |
+
+![Optimal routing](reports/figures/08_optimal_routing_gap.png)
+
+- **The best simple rule is 4-8% above optimal; S-shape and Return are 21-45% above it.** Largest gap or Combined, whichever suits the layout, recovers most of the achievable routing saving. S-shape - the rule behind Modules 2-4 and 6 - and Return make pickers walk 21-45% further than necessary.
+- **Which simple rule comes closest depends on the layout.** Largest gap is closest on Random and Aisle-based velocity; Combined is closest on Class-based ABC and Full velocity, which put fast SKUs near the front of many aisles, where entering an aisle and backing out is cheap. Per order, Largest gap is strictly the shortest of the four rules in 55% of order x layout cases, Combined in 25% (ties for the rest; S-shape and Return are never strictly shortest).
+- **With optimal routing the best slotting method is Aisle-based velocity (454 m), ahead of Full velocity (462 m, +1.8%)** - the same winner as under S-shape and Largest gap (Module 5), not the Return/Combined winner. Class-based ABC gains the least from its layout under optimal routing (-22.4% vs. random, against -32% to -34% for the two velocity methods), because a good route already removes much of the walking that zoning would save.
+- **Routing and slotting are separate levers of similar size.** On the Class-based ABC layout, switching from S-shape to optimal routing cuts 708 m to 531 m (-25%), about the same as moving from a random layout to ABC zoning under S-shape (-24%). The two combine: Aisle-based velocity with optimal routing (454 m) is 51% below Random with S-shape (934 m).
+
 ### Order profile (Module 1)
 
 - 33.6% of SKUs generate 80% of pick lines. 28.7% of SKUs land in a different ABC class by revenue than by pick frequency.
@@ -140,6 +170,7 @@ Every result above compares one-time layouts. Real warehouses keep operating whi
 | 4 | **Out-of-sample check:** two independent history/future splits, plus a new-SKU vs. frequency-drift decomposition | ✅ Done |
 | 5 | **Routing sensitivity:** Return and largest-gap routing policies, a 4th aisle-based-velocity scenario, 4x3 evaluation grid | ✅ Done |
 | 6 | **Re-slotting policies:** 7 update policies simulated month by month with a move-cost/distance trade-off | ✅ Done |
+| 7 | **Optimal routing:** warehouse graph, per-order TSP with OR-Tools (validated against exact Held-Karp), a Combined routing rule, 4 slotting x 5 routing grid | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -150,7 +181,7 @@ A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decision
 warehouse-slotting-optimization/
 ├── data/                 # Data source & download instructions (raw and processed files not committed)
 ├── src/                  # Analysis scripts, run in order
-├── tests/                # Unit tests for the routing distance and slotting policies
+├── tests/                # Unit tests for routing distances, slotting policies and the optimal-route solver
 ├── reports/              # kpi_summary.xlsx and figures/
 ├── docs/                 # Methodology notes
 └── requirements.txt
@@ -167,6 +198,7 @@ python src/03_kpi_summary.py           # reports/kpi_summary.xlsx
 python src/04_out_of_sample_check.py   # in-sample vs. out-of-sample savings (~10 s)
 python src/05_routing_sensitivity.py   # 4 scenarios x 3 routing policies (~20 s)
 python src/06_reslotting_policies.py   # 7 re-slotting policies, simulated month by month (~4 min)
+python src/07_optimal_routing.py       # optimal (OR-Tools TSP) vs. simple routing rules (~24 min on 8 cores)
 
 # Tests (the S-shape distance is checked against hand-calculated routes)
 python -m pytest tests/                # or: python tests/test_routing.py
@@ -176,7 +208,7 @@ python -m pytest tests/                # or: python tests/test_routing.py
 
 - Order data is **real** (UCI Online Retail II); the warehouse layout is **synthetic**, since the source retailer's layout is not public. Results depend on the layout parameters (constants at the top of `src/02_slotting_routing.py`).
 - Layout: 40 aisles x 2 racks x 50 slots (4,000 slots for 3,791 SKUs), 50 m aisles, 3 m aisle pitch, depot at the left end of the front cross aisle. Cross-aisle width and lateral movement inside an aisle are ignored.
-- Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. One picker per order; no batching, congestion or zone picking.
+- Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. Module 7 compares all rules with the optimal route per order (OR-Tools TSP; exact on every validated order with <= 10 SKUs, within 0.23% on average of a longer search on larger orders). One picker per order; no batching, congestion or zone picking.
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
 - **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is -13% (class-based) and -19% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
