@@ -10,6 +10,7 @@
 - **Result:** -24% (class-based ABC) to -32% (full velocity) vs. a random layout in-sample; **-13% to -19%** when SKUs are ranked on the prior year and evaluated on the next. Most of that gap comes from new SKUs with no pick history.
 - **Recommendation:** ABC zoning with new SKUs placed at the front of the B zone (zero moves, 816 -> 764 m per order). If moving a SKU takes under ~4 minutes, also re-slot only the fastest 500 SKUs when their rank drifts (~10 moves per working day, 725 m per order).
 - **Routing is a separate lever of similar size, with no SKU moves:** on the ABC layout, optimal routing instead of S-shape cuts walking by 25% (708 -> 531 m per order), and the best simple routing rule (Largest gap or Combined) is only 4-8% longer than optimal. In-sample figures (Module 7).
+- **Scaling up (Modules 8a-8b, simulation of a picker team):** aisle congestion costs under 7% of work time at today's volume. At 10x volume, a strict "one picker per aisle" model says fast movers up front backfire, but with realistic 5 m aisle segments they keep their lead (23 pickers: 70-75 min from order to picked vs. 118 min for a random layout). Spreading fast movers over more aisles does not pay; in narrow aisles a simple skip-and-return rule cuts aisle waiting by about 40% on ABC and velocity layouts.
 
 ## Business Problem
 
@@ -163,6 +164,8 @@ Modules 2-6 route orders with simple rules. Module 7 asks **how far those rules 
 
 ### Multi-picker congestion (Module 8a)
 
+*Strict model: a whole aisle holds one picker. Module 8b below refines this to 5 m aisle segments, which shrinks waiting about 8-9 times and reverses the growth conclusion at the end of this section; 8a's overtime figures also count idle evening time (see the overtime note in 8b).*
+
 Every module above assumes one picker alone in the warehouse. Module 8a simulates a whole team (SimPy discrete-event simulation): orders drop into a FIFO queue at their real invoice time, idle pickers pull the next one, walk its route at 1 m/s, spend 10 s per SKU and 60 s per order on set-up and hand-over. **An aisle holds one picker at a time** - anyone else waits at the aisle end. Shift 08:00-18:00 (98% of orders arrive in that window); leftover work is finished as overtime. Volume x1 (the real year: 19,773 orders on 305 days), x5 and x10 (each order copied with a random +-30 min shift on the same day), 4 layouts (Random and Class-based ABC with one seed), S-shape and optimal routes (Module 7's OR-Tools tours, cached). Picker counts per volume: x1 2-8, x5 8-24, x10 15-40 (5 each; see methodology for how the ranges were chosen).
 
 At a mid-range team size per volume (S-shape / optimal routing):
@@ -215,6 +218,56 @@ The cause is a hard bottleneck, not a staffing problem: under Aisle-based veloci
 - **At today's volume the earlier conclusions hold:** congestion eats at most ~13% of the walking saving.
 - **In a growing warehouse with narrow aisles,** concentrating fast movers at the front stops paying off somewhere between x5 and x10 volume; ABC zoning keeps most of its advantage longer, and wider aisles (2 pickers) restore the velocity layouts' lead.
 
+### Refined congestion model (Module 8b)
+
+Module 8a is the **strict model**: a whole 50 m aisle holds one picker. Module 8b makes it realistic: every aisle is split into **10 segments of 5 m**, and a picker only holds the segment they are walking or picking in (narrow aisle: 1 picker per segment; wide: 2). To rule out deadlocks, a blocked picker steps aside: they release their own segment before waiting for the next one, so two pickers can never hold each other up in a circle. It also adds a **Spread velocity** layout (the fastest SKUs dealt round-robin over the front of the first K aisles, K = 5, 10, 20), a **skip-and-return** policy (if the next aisle's entry segment is full when the picker is about to walk there, they do the following aisle first and come back), and a **cost-based team size**. Runtime limited the scope (chosen after a ~10 h estimate for the full grid): S-shape routing only; 44 configurations; all orders, no sampling.
+
+**1. Strict vs. segment model** (x10 volume, 23 pickers, S-shape, wait):
+
+| Layout | Model | Aisle wait per order | Waiting / work time | Order cycle time |
+|---|---|---|---|---|
+| Random | 8a strict (aisle = 1 picker) | 4.0 min | 16.0% | 166 min |
+| Random | 8b narrow (segment = 1 picker) | 0.5 min | 2.1% | 118 min |
+| Random | 8b wide (segment = 2 pickers) | 0.0 min | 0.0% | 113 min |
+| Full velocity | 8a strict | 11.4 min | 41.8% | 205 min |
+| Full velocity | 8b narrow | 1.5 min | 8.4% | **75 min** |
+| Full velocity | 8b wide | 0.0 min | 0.2% | **58 min** |
+
+**2-3. Spreading fast movers and skip-and-return** (x10 volume, 23 pickers, narrow aisles, S-shape):
+
+| Layout | Walk per order | Aisle wait, wait / skip | Cycle time, wait / skip | Waiting in the 5 front aisles (wait) |
+|---|---|---|---|---|
+| Random | 15.6 min | 27 / 21 s | 118 / 119 min | 14% |
+| Class-based ABC | 11.8 min | 64 / 38 s | 82 / 78 min | 34% |
+| Full velocity | 10.6 min | 87 / 49 s | 75 / 68 min | 62% |
+| Aisle-based velocity (= spread over 1 aisle) | 9.8 min | 99 / 57 s | **70 / 62 min** | 73% |
+| Spread velocity, K = 5 | 10.0 min | 98 / 53 s | 72 / 63 min | 71% |
+| Spread velocity, K = 10 | 10.4 min | 85 / 49 s | 72 / 66 min | 42% |
+| Spread velocity, K = 20 | 11.6 min | 62 / 38 s | 79 / 76 min | 25% |
+
+![Refined congestion model](reports/figures/10_congestion_refined.png)
+
+**4. Team size: speed-based vs. cost-based** (Class-based ABC and Full velocity, narrow aisles, wait). *Speed-based* = Module 8a's definition (a 10% larger team cuts cycle time by less than 2.5%). *Cost-based* = smallest team for which >= 95% of orders are finished on their arrival day and, on >= 95% of days, overtime per picker is at most 30 min. Unit cost = pickers x 10 h x wage + overtime hours x 1.5 x wage, wage = 1 unit/hour.
+
+| Volume | Layout | Speed-based | Cost-based (service level) | Cheapest team tested |
+|---|---|---|---|---|
+| x1 | Class-based ABC | 6 (19 min, 0.94/order) | 8 (18 min, 1.25/order) | 3 (44 min, 0.50/order) |
+| x1 | Full velocity | 6 (17 min, 0.94/order) | 6 (17 min, 0.94/order) | 3 (38 min, 0.49/order) |
+| x5 | Class-based ABC | >= 20 (27 min, 0.64/order) | > 20 (81% of days within the overtime limit at 20) | 10 (104 min, 0.40/order) |
+| x5 | Full velocity | >= 20 (25 min, 0.64/order) | > 20 (83% at 20) | 10 (91 min, 0.39/order) |
+| x10 | Class-based ABC | >= 40 (30 min, 0.65/order) | > 40 (79% at 40) | 18 (134 min, 0.40/order) |
+| x10 | Full velocity | >= 40 (29 min, 0.64/order) | > 40 (81% at 40) | 18 (121 min, 0.39/order) |
+
+*(Cycle time and unit cost per order in brackets. ">=" / ">": not reached within the team sizes tested: x1 3-8, x5 10-20, x10 18-40.)*
+
+- **1. Is congestion as large as in 8a? No - about 8-9 times smaller.** With 5 m segments, aisle waiting at the reference point falls by 87-89% in narrow aisles (Full velocity 11.4 -> 1.5 min per order) and almost to zero in wide ones. The strict model's "front aisle is a bottleneck" was an artefact: under Aisle-based velocity the busiest whole aisle needs 16 h per 10 h shift at x10, but its busiest 5 m segment only 2.2 h. Most important, **the layout ranking flips back**: Full velocity's cycle time is 75 min vs. 118 min for Random (8a strict: 205 vs. 166 min).
+- **2. Does spreading fast movers solve the bottleneck? There is little bottleneck left to solve.** Spreading over more aisles cuts waiting (K = 20: -38% vs. one aisle) but adds more walking (+18%), so the net cycle time gets worse: 1 aisle 70 min, K = 5 72 min, K = 10 72 min, K = 20 79 min. Best K = 1 (Aisle-based velocity), with K = 5 within 2.4%. Spreading would help in the strict model (K = 10 brings the busiest aisle from 16 h down to 9 h per shift), not in the segment model.
+- **3. Skip-and-return** cuts aisle waiting by 38-45% on velocity and ABC layouts for about 1% more walking (0.5-0.9 skips per order), and cycle time by 4-12% (Aisle-based velocity 70 -> 62 min, Spread K = 5 72 -> 63 min). It is worth it where traffic piles up in the front aisles; on Random it changes nothing (118 -> 119 min). In wide aisles there is almost no waiting left to avoid.
+- **4. Team size:** at x1 the service level needs 6 pickers with Full velocity (the same as the speed-based count) and 8 with ABC (2 more, +33% cost per order). At x5 and x10 the service level is not reached within the team sizes tested. The binding part is the overtime limit on Thursday evenings, when orders keep arriving until about 20:00; that work happens after 18:00 whatever the team size, and the per-picker limit only spreads it thinner. Pure cost always favours the smallest team (overtime at 1.5x is cheaper than another full shift), but then orders take 1.5-2.2 hours from arrival to completion at x5 and x10 (38-44 min at x1).
+- **5. Does the layout advice for a growing warehouse change?** Yes, compared with 8a: **with realistic aisles, fast movers up front keep paying off even at 10x volume** (Aisle-based 70 min, Full velocity 75 min, ABC 82 min, Random 118 min). Spreading them out does not help. In narrow aisles, a skip-and-return rule is a cheaper way to cut congestion than changing the layout; wide aisles remove it almost entirely.
+
+*Overtime note:* 8a counted overtime from 18:00 until each picker's last order. On Thursday evenings, idle pickers who each picked up one late order were therefore counted as working all evening (at x1 with 8 pickers: 7.4 picker-hours counted vs. 1.95 hours of actual work after 18:00). The 8b service level and cost use overtime **work** (time spent on orders after 18:00). The 8a definition is kept in the CSV for comparison.
+
 ## Approach
 
 | # | Module | Status |
@@ -227,6 +280,7 @@ The cause is a hard bottleneck, not a staffing problem: under Aisle-based veloci
 | 6 | **Re-slotting policies:** 7 update policies simulated month by month with a move-cost/distance trade-off | ✅ Done |
 | 7 | **Optimal routing:** warehouse graph, per-order TSP with OR-Tools (validated against exact Held-Karp), a Combined routing rule, 4 slotting x 5 routing grid | ✅ Done |
 | 8a | **Multi-picker congestion:** SimPy discrete-event simulation of a picker team with one-picker aisles, 3 volumes x 4 layouts x 2 routes x 5 team sizes, staffing knee | ✅ Done |
+| 8b | **Refined congestion model:** 5 m aisle segments (narrow/wide) with a deadlock-free step-aside rule, Spread velocity slotting, skip-and-return policy, cost-based team size | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -256,6 +310,7 @@ python src/05_routing_sensitivity.py   # 4 scenarios x 3 routing policies (~20 s
 python src/06_reslotting_policies.py   # 7 re-slotting policies, simulated month by month (~4 min)
 python src/07_optimal_routing.py       # optimal (OR-Tools TSP) vs. simple routing rules (~24 min on 8 cores)
 python src/08_congestion_simulation.py # multi-picker congestion simulation (~31 min on 8 cores, incl. ~12 min tour cache)
+python src/08b_congestion_refined.py   # segment-level aisles, spread slotting, skip-and-return (~46 min on 8 cores)
 
 # Tests (the S-shape distance is checked against hand-calculated routes)
 python -m pytest tests/                # or: python tests/test_routing.py
@@ -265,7 +320,7 @@ python -m pytest tests/                # or: python tests/test_routing.py
 
 - Order data is **real** (UCI Online Retail II); the warehouse layout is **synthetic**, since the source retailer's layout is not public. Results depend on the layout parameters (constants at the top of `src/02_slotting_routing.py`).
 - Layout: 40 aisles x 2 racks x 50 slots (4,000 slots for 3,791 SKUs), 50 m aisles, 3 m aisle pitch, depot at the left end of the front cross aisle. Cross-aisle width and lateral movement inside an aisle are ignored.
-- Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. Module 7 compares all rules with the optimal route per order (OR-Tools TSP; exact on every validated order with <= 10 SKUs, within 0.23% on average of a longer search on larger orders). One picker per order; no batching or zone picking. Congestion between pickers is modelled only in Module 8a (one picker per aisle at a time; waiting is the only blocking policy).
+- Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. Module 7 compares all rules with the optimal route per order (OR-Tools TSP; exact on every validated order with <= 10 SKUs, within 0.23% on average of a longer search on larger orders). One picker per order; no batching or zone picking. Congestion between pickers is modelled only in Modules 8a (strict: one picker per whole aisle, wait only) and 8b (5 m aisle segments, wait or skip-and-return).
 - A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds, except Module 7 (3 seeds, for runtime) and Module 8a (one seed each - Module 2's seeds differ by only +-0.3-0.6% in distance per order); all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
 - **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is -13% (class-based) and -19% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
