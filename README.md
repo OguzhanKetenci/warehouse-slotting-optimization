@@ -1,6 +1,6 @@
 # Warehouse Slotting & Picking Optimization
 
-> Velocity-based slotting analysis on real order data to reduce picker travel distance, with a KPI framework to measure the improvement.
+> End-to-end warehouse picking analysis on real order data: velocity-based slotting, picker routing (simple rules vs. optimal), re-slotting policies and a multi-picker congestion simulation.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![pandas](https://img.shields.io/badge/pandas-data%20analysis-150458) ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 
@@ -16,6 +16,15 @@
 In a warehouse with thousands of SKUs, most of a picker's time is spent **walking**, not picking. If fast-moving items are stored far from the dispatch area, every order costs extra travel time and labour.
 
 **Question:** How much can picker travel distance be reduced by re-slotting SKUs based on how often they are picked?
+
+## Order Profile (Module 1)
+
+- 33.6% of SKUs generate 80% of pick lines. 28.7% of SKUs land in a different ABC class by revenue than by pick frequency.
+- 7.6% of orders have a single line; the median order has 15 lines.
+
+![Lines per order](reports/figures/01_lines_per_order.png)
+
+![Pick frequency Pareto](reports/figures/02_pick_pareto.png)
 
 ## Key Results (Modules 2 & 3)
 
@@ -206,15 +215,6 @@ The cause is a hard bottleneck, not a staffing problem: under Aisle-based veloci
 - **At today's volume the earlier conclusions hold:** congestion eats at most ~13% of the walking saving.
 - **In a growing warehouse with narrow aisles,** concentrating fast movers at the front stops paying off somewhere between x5 and x10 volume; ABC zoning keeps most of its advantage longer, and wider aisles (2 pickers) restore the velocity layouts' lead.
 
-### Order profile (Module 1)
-
-- 33.6% of SKUs generate 80% of pick lines. 28.7% of SKUs land in a different ABC class by revenue than by pick frequency.
-- 7.6% of orders have a single line; the median order has 15 lines.
-
-![Lines per order](reports/figures/01_lines_per_order.png)
-
-![Pick frequency Pareto](reports/figures/02_pick_pareto.png)
-
 ## Approach
 
 | # | Module | Status |
@@ -266,7 +266,7 @@ python -m pytest tests/                # or: python tests/test_routing.py
 - Order data is **real** (UCI Online Retail II); the warehouse layout is **synthetic**, since the source retailer's layout is not public. Results depend on the layout parameters (constants at the top of `src/02_slotting_routing.py`).
 - Layout: 40 aisles x 2 racks x 50 slots (4,000 slots for 3,791 SKUs), 50 m aisles, 3 m aisle pitch, depot at the left end of the front cross aisle. Cross-aisle width and lateral movement inside an aisle are ignored.
 - Picking routes use the S-shape heuristic by default, a common industry baseline rather than an optimal route; Module 5 cross-checks the main scenarios under two more heuristics (Return, Largest gap) and finds the best *precise* method depends on which one a warehouse actually uses (see the routing sensitivity check above), while class-based ABC stays robust across all three. Module 7 compares all rules with the optimal route per order (OR-Tools TSP; exact on every validated order with <= 10 SKUs, within 0.23% on average of a longer search on larger orders). One picker per order; no batching or zone picking. Congestion between pickers is modelled only in Module 8a (one picker per aisle at a time; waiting is the only blocking policy).
-- A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds; all 19,773 orders are evaluated (no sampling).
+- A pick is one distinct (order, SKU) visit. Random and class-based results are averages over 10 seeds, except Module 7 (3 seeds, for runtime) and Module 8a (one seed each - Module 2's seeds differ by only +-0.3-0.6% in distance per order); all 19,773 orders are evaluated (no sampling).
 - Walking time assumes 1.0 m/s and covers walking only; it is an indicator, not a labour-hours forecast.
 - **In-sample main results:** the Key Results rank SKUs with the same period they are evaluated on. Module 4 checks two independent splits (within-year and year-over-year) and both agree: a realistic saving is -13% (class-based) and -19% (full velocity), about half the in-sample figures above. 10-13 percentage points of that gap is specifically the cost of slotting SKUs with no pick history (see the out-of-sample check above), not a flaw in velocity-based slotting itself.
 - Item dimensions, weight, rack capacity and replenishment are not modelled. The labour cost of re-slotting itself *is* modelled in Module 6 (move counts x an assumed minutes-per-move), but only as a simple linear cost - no truck/labour scheduling, batching of moves, or SKU handling difficulty.
