@@ -9,6 +9,7 @@
 - **Problem:** How much picker walking can be saved by storing frequently picked SKUs closer to dispatch? Real orders (19,773 orders, 3,791 SKUs, UCI Online Retail II) routed through a synthetic 40-aisle warehouse.
 - **Result:** -24% (class-based ABC) to -32% (full velocity) vs. a random layout in-sample; **-13% to -19%** when SKUs are ranked on the prior year and evaluated on the next. Most of that gap comes from new SKUs with no pick history.
 - **Recommendation:** ABC zoning with new SKUs placed at the front of the B zone (zero moves, 816 -> 764 m per order). If moving a SKU takes under ~4 minutes, also re-slot only the fastest 500 SKUs when their rank drifts (~10 moves per working day, 725 m per order).
+- **Routing is a separate lever of similar size, with no SKU moves:** on the ABC layout, optimal routing instead of S-shape cuts walking by 25% (708 -> 531 m per order), and the best simple routing rule (Largest gap or Combined) is only 4-8% longer than optimal. In-sample figures (Module 7).
 
 ## Business Problem
 
