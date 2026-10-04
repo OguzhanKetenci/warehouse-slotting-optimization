@@ -165,28 +165,28 @@ Modules 2-6 route orders with simple rules. Module 7 asks **how far those rules 
 
 ### Multi-picker congestion (Module 8a)
 
-*Strict model: a whole aisle holds one picker. Module 8b below refines this to 5 m aisle segments, which shrinks waiting about 8-9 times and reverses the growth conclusion at the end of this section; 8a's overtime figures also count idle evening time (see the overtime note in 8b).*
+*Strict model: a whole aisle holds one picker. Module 8b below refines this to 5 m aisle segments, which shrinks waiting about 8-9 times and reverses the growth conclusion at the end of this section.*
 
 Every module above assumes one picker alone in the warehouse. Module 8a simulates a whole team (SimPy discrete-event simulation): orders drop into a FIFO queue at their real invoice time, idle pickers pull the next one, walk its route at 1 m/s, spend 10 s per SKU and 60 s per order on set-up and hand-over. **An aisle holds one picker at a time** - anyone else waits at the aisle end. Shift 08:00-18:00 (98% of orders arrive in that window); leftover work is finished as overtime. Volume x1 (the real year: 19,773 orders on 305 days), x5 and x10 (each order copied with a random +-30 min shift on the same day), 4 layouts (Random and Class-based ABC with one seed), S-shape and optimal routes (Module 7's OR-Tools tours, cached). Picker counts per volume: x1 2-8, x5 8-24, x10 15-40 (5 each; see methodology for how the ranges were chosen).
 
 At a mid-range team size per volume (S-shape / optimal routing):
 
-| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles (S-shape) | Overtime per day, S-shape: ~~wrong definition~~ / corrected |
+| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles (S-shape) | Overtime per day (S-shape) |
 |---|---|---|---|---|---|---|
-| x1, 4 | Random | 0.4 / 0.3 min | 1.8% / 1.9% | 41 / 26 min | 13% | ~~2.1 h~~ / 1.6 h |
-| x1, 4 | Class-based ABC | 0.6 / 0.5 min | 3.4% / 3.7% | 28 / 20 min | 31% | ~~1.6 h~~ / 0.9 h |
-| x1, 4 | Full velocity | 0.6 / 0.6 min | 3.9% / 4.3% | 25 / 17 min | 54% | ~~1.4 h~~ / 0.8 h |
-| x1, 4 | Aisle-based velocity | 0.7 / 0.7 min | 4.6% / 5.1% | 23 / 17 min | 65% | ~~1.4 h~~ / 0.7 h |
-| x5, 12 | Random | 1.6 / 1.5 min | 7.1% / 8.1% | 124 / 76 min | 15% | ~~29.7 h~~ / 29.1 h |
-| x5, 12 | Class-based ABC | 2.6 / 2.7 min | 12.9% / 15.8% | 93 / 66 min | 39% | ~~21.6 h~~ / 20.6 h |
-| x5, 12 | Full velocity | 3.2 / 3.3 min | 16.6% / 20.3% | 88 / 63 min | 67% | ~~20.4 h~~ / 19.3 h |
-| x5, 12 | Aisle-based velocity | 4.8 / 5.3 min | 23.9% / 29.1% | 97 / 81 min | 82% | ~~22.7 h~~ / 21.8 h |
-| x10, 23 | Random | 4.0 / 3.7 min | 16.0% / 18.1% | 166 / 108 min | 17% | ~~84.2 h~~ / 83.6 h |
-| x10, 23 | Class-based ABC | 7.1 / 7.5 min | 29.2% / 34.4% | 160 / 127 min | 48% | ~~80.9 h~~ / 80.2 h |
-| x10, 23 | Full velocity | 11.4 / 11.0 min | 41.8% / 45.7% | 205 / 161 min | 85% | ~~109.9 h~~ / 109.5 h |
-| x10, 23 | Aisle-based velocity | 18.4 / 18.7 min | 54.8% / 59.2% | 295 / 269 min | 94% | ~~172.2 h~~ / 172.1 h |
+| x1, 4 | Random | 0.4 / 0.3 min | 1.8% / 1.9% | 41 / 26 min | 13% | 1.6 h |
+| x1, 4 | Class-based ABC | 0.6 / 0.5 min | 3.4% / 3.7% | 28 / 20 min | 31% | 0.9 h |
+| x1, 4 | Full velocity | 0.6 / 0.6 min | 3.9% / 4.3% | 25 / 17 min | 54% | 0.8 h |
+| x1, 4 | Aisle-based velocity | 0.7 / 0.7 min | 4.6% / 5.1% | 23 / 17 min | 65% | 0.7 h |
+| x5, 12 | Random | 1.6 / 1.5 min | 7.1% / 8.1% | 124 / 76 min | 15% | 29.1 h |
+| x5, 12 | Class-based ABC | 2.6 / 2.7 min | 12.9% / 15.8% | 93 / 66 min | 39% | 20.6 h |
+| x5, 12 | Full velocity | 3.2 / 3.3 min | 16.6% / 20.3% | 88 / 63 min | 67% | 19.3 h |
+| x5, 12 | Aisle-based velocity | 4.8 / 5.3 min | 23.9% / 29.1% | 97 / 81 min | 82% | 21.8 h |
+| x10, 23 | Random | 4.0 / 3.7 min | 16.0% / 18.1% | 166 / 108 min | 17% | 83.6 h |
+| x10, 23 | Class-based ABC | 7.1 / 7.5 min | 29.2% / 34.4% | 160 / 127 min | 48% | 80.2 h |
+| x10, 23 | Full velocity | 11.4 / 11.0 min | 41.8% / 45.7% | 205 / 161 min | 85% | 109.5 h |
+| x10, 23 | Aisle-based velocity | 18.4 / 18.7 min | 54.8% / 59.2% | 295 / 269 min | 94% | 172.1 h |
 
-*Cycle time = order arrival to completion (queue + picking). All 128 simulated configurations, including overtime, utilisation and hourly throughput, are in `data/processed/congestion_simulation.csv`. Overtime = picker-hours per day after 18:00. The struck-through values use 8a's original, **wrong definition** (from 18:00 until each picker's last order, which also counts idle evening waiting); the corrected values count only time spent on orders after 18:00 (Module 8b's definition), recomputed in Module 8c by re-simulating these configurations, which reproduced every other stored metric exactly. All other overtime figures in 8a's CSV still use the wrong definition.*
+*Cycle time = order arrival to completion (queue + picking). All 128 simulated configurations, including overtime, utilisation and hourly throughput, are in `data/processed/congestion_simulation.csv`. Overtime = picker-hours per day spent on orders after 18:00 (Module 8b's definition), recomputed in Module 8c by re-simulating these configurations, which reproduced every other stored metric exactly. The overtime column in 8a's CSV uses 8a's original definition, which also counted idle evening time.*
 
 ![Congestion](reports/figures/09_congestion.png)
 
@@ -267,7 +267,7 @@ Module 8a is the **strict model**: a whole 50 m aisle holds one picker. Module 8
 - **4. Team size:** at x1 the service level needs 6 pickers with Full velocity (the same as the speed-based count) and 8 with ABC (2 more, +33% cost per order). At x5 and x10 the service level is not reached within the team sizes tested. The binding part is the overtime limit on Thursday evenings, when orders keep arriving until about 20:00; that work happens after 18:00 whatever the team size, and the per-picker limit only spreads it thinner. Pure cost always favours the smallest team (overtime at 1.5x is cheaper than another full shift), but then orders take 1.5-2.2 hours from arrival to completion at x5 and x10 (38-44 min at x1).
 - **5. Does the layout advice for a growing warehouse change?** Yes, compared with 8a: **with realistic aisles, fast movers up front keep paying off even at 10x volume** (Aisle-based 70 min, Full velocity 75 min, ABC 82 min, Random 118 min). Spreading them out does not help. In narrow aisles, a skip-and-return rule is a cheaper way to cut congestion than changing the layout; wide aisles remove it almost entirely.
 
-*Overtime note:* 8a counted overtime from 18:00 until each picker's last order. On Thursday evenings, idle pickers who each picked up one late order were therefore counted as working all evening (at x1 with 8 pickers: 7.4 picker-hours counted vs. 1.95 hours of actual work after 18:00). The 8b service level and cost use overtime **work** (time spent on orders after 18:00). The 8a definition is kept in the CSV for comparison.
+*Overtime note:* 8a counted overtime from 18:00 until each picker's last order. On Thursday evenings, idle pickers who each picked up one late order were therefore counted as working all evening (at x1 with 8 pickers: 7.4 picker-hours counted vs. 1.95 hours of actual work after 18:00). The 8b service level and cost use overtime **work** (time spent on orders after 18:00). The 8a table above uses the same corrected definition (recomputed in Module 8c); 8a's CSV keeps the original one for comparison.
 
 ### Order cut-off and staffing (Module 8c)
 
