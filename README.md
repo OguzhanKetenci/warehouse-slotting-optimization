@@ -236,15 +236,15 @@ Module 8a is the **strict model**: a whole 50 m aisle holds one picker. Module 8
 
 **2-3. Spreading fast movers and skip-and-return** (x10 volume, 23 pickers, narrow aisles, S-shape):
 
-| Layout | Walk per order | Aisle wait, wait / skip | Cycle time, wait / skip | Waiting in the 5 front aisles (wait) |
-|---|---|---|---|---|
-| Random | 15.6 min | 27 / 21 s | 118 / 119 min | 14% |
-| Class-based ABC | 11.8 min | 64 / 38 s | 82 / 78 min | 34% |
-| Full velocity | 10.6 min | 87 / 49 s | 75 / 68 min | 62% |
-| Aisle-based velocity (= spread over 1 aisle) | 9.8 min | 99 / 57 s | **70 / 62 min** | 73% |
-| Spread velocity, K = 5 | 10.0 min | 98 / 53 s | 72 / 63 min | 71% |
-| Spread velocity, K = 10 | 10.4 min | 85 / 49 s | 72 / 66 min | 42% |
-| Spread velocity, K = 20 | 11.6 min | 62 / 38 s | 79 / 76 min | 25% |
+| Layout | Walk per order | Aisle wait (wait) | Aisle wait (skip) | Cycle time (wait) | Cycle time (skip) | Waiting in the 5 front aisles (wait) |
+|---|---|---|---|---|---|---|
+| Random | 15.6 min | 27 s | 21 s | 118 min | 119 min | 14% |
+| Class-based ABC | 11.8 min | 64 s | 38 s | 82 min | 78 min | 34% |
+| Full velocity | 10.6 min | 87 s | 49 s | 75 min | 68 min | 62% |
+| Aisle-based velocity (= spread over 1 aisle) | 9.8 min | 99 s | 57 s | **70 min** | **62 min** | 73% |
+| Spread velocity, K = 5 | 10.0 min | 98 s | 53 s | 72 min | 63 min | 71% |
+| Spread velocity, K = 10 | 10.4 min | 85 s | 49 s | 72 min | 66 min | 42% |
+| Spread velocity, K = 20 | 11.6 min | 62 s | 38 s | 79 min | 76 min | 25% |
 
 ![Refined congestion model](reports/figures/10_congestion_refined.png)
 
