@@ -244,16 +244,25 @@ def prepare_routes(visit_lists, pick_time_s=PICK_TIME_S):
 # ----------------------------------------------------------------------------
 def simulate_day(arrivals, base_idx, routes, n_pickers, capacity, policy="wait",
                  n_aisles=sr.N_AISLES, shift_start_s=SHIFT_START_H * 3600,
-                 handling_s=ORDER_HANDLING_S, pick_time_s=PICK_TIME_S):
+                 handling_s=ORDER_HANDLING_S, pick_time_s=PICK_TIME_S,
+                 deferrable=None, defer_at_s=None):
     """routes: prepare_routes output. capacity: pickers per segment (None = unlimited).
     Returns dict of per-order arrays (start, end, wait, walk, skips), per-picker last finish,
-    and per-aisle waiting."""
+    and per-aisle waiting.
+
+    deferrable / defer_at_s (Module 8c, order cut-off; default None = plain FIFO as above):
+    orders flagged deferrable (arrived after the cut-off) are only picked when no other order is
+    waiting; those not started by defer_at_s (shift end), or arriving after it, are not picked
+    that day and get out["deferred"] = 1."""
     env = simpy.Environment()
-    queue = simpy.Store(env)
+    cutoff_mode = deferrable is not None
+    queue = simpy.PriorityStore(env) if cutoff_mode else simpy.Store(env)
     segs = None if capacity is None else [[simpy.Resource(env, capacity=capacity) for _ in range(N_SEGMENTS)]
                                           for _ in range(n_aisles)]
     n = len(arrivals)
     out = {k: np.zeros(n) for k in ("start", "end", "wait", "walk", "skips")}
+    if cutoff_mode:
+        out["deferred"] = np.zeros(n)
     last_finish = np.zeros(n_pickers)
     aisle_wait = np.zeros(n_aisles)
 
@@ -261,12 +270,29 @@ def simulate_day(arrivals, base_idx, routes, n_pickers, capacity, policy="wait",
         for i, t in enumerate(arrivals):
             if t > env.now:
                 yield env.timeout(t - env.now)
-            queue.put(i)
+            if not cutoff_mode:
+                queue.put(i)
+            elif deferrable[i] and env.now >= defer_at_s:
+                out["deferred"][i] = 1
+            else:
+                queue.put(simpy.PriorityItem((int(deferrable[i]), i), i))
+
+    def defer_at_shift_end():
+        yield env.timeout(defer_at_s)
+        keep = []
+        for it in queue.items:
+            if it.priority[0] == 1:
+                out["deferred"][it.item] = 1
+            else:
+                keep.append(it)
+        queue.items[:] = sorted(keep)
 
     def picker(p):
         yield env.timeout(shift_start_s)
         while True:
             i = yield queue.get()
+            if cutoff_mode:
+                i = i.item
             out["start"][i] = env.now
             plan = list(routes[base_idx[i]])
             postponed = [False] * len(plan)
@@ -320,6 +346,8 @@ def simulate_day(arrivals, base_idx, routes, n_pickers, capacity, policy="wait",
             last_finish[p] = env.now
 
     env.process(source())
+    if cutoff_mode:
+        env.process(defer_at_shift_end())
     for p in range(n_pickers):
         env.process(picker(p))
     env.run()

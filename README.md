@@ -170,22 +170,22 @@ Every module above assumes one picker alone in the warehouse. Module 8a simulate
 
 At a mid-range team size per volume (S-shape / optimal routing):
 
-| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles (S-shape) |
-|---|---|---|---|---|---|
-| x1, 4 | Random | 0.4 / 0.3 min | 1.8% / 1.9% | 41 / 26 min | 13% |
-| x1, 4 | Class-based ABC | 0.6 / 0.5 min | 3.4% / 3.7% | 28 / 20 min | 31% |
-| x1, 4 | Full velocity | 0.6 / 0.6 min | 3.9% / 4.3% | 25 / 17 min | 54% |
-| x1, 4 | Aisle-based velocity | 0.7 / 0.7 min | 4.6% / 5.1% | 23 / 17 min | 65% |
-| x5, 12 | Random | 1.6 / 1.5 min | 7.1% / 8.1% | 124 / 76 min | 15% |
-| x5, 12 | Class-based ABC | 2.6 / 2.7 min | 12.9% / 15.8% | 93 / 66 min | 39% |
-| x5, 12 | Full velocity | 3.2 / 3.3 min | 16.6% / 20.3% | 88 / 63 min | 67% |
-| x5, 12 | Aisle-based velocity | 4.8 / 5.3 min | 23.9% / 29.1% | 97 / 81 min | 82% |
-| x10, 23 | Random | 4.0 / 3.7 min | 16.0% / 18.1% | 166 / 108 min | 17% |
-| x10, 23 | Class-based ABC | 7.1 / 7.5 min | 29.2% / 34.4% | 160 / 127 min | 48% |
-| x10, 23 | Full velocity | 11.4 / 11.0 min | 41.8% / 45.7% | 205 / 161 min | 85% |
-| x10, 23 | Aisle-based velocity | 18.4 / 18.7 min | 54.8% / 59.2% | 295 / 269 min | 94% |
+| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles (S-shape) | Overtime per day, S-shape: ~~wrong definition~~ / corrected |
+|---|---|---|---|---|---|---|
+| x1, 4 | Random | 0.4 / 0.3 min | 1.8% / 1.9% | 41 / 26 min | 13% | ~~2.1 h~~ / 1.6 h |
+| x1, 4 | Class-based ABC | 0.6 / 0.5 min | 3.4% / 3.7% | 28 / 20 min | 31% | ~~1.6 h~~ / 0.9 h |
+| x1, 4 | Full velocity | 0.6 / 0.6 min | 3.9% / 4.3% | 25 / 17 min | 54% | ~~1.4 h~~ / 0.8 h |
+| x1, 4 | Aisle-based velocity | 0.7 / 0.7 min | 4.6% / 5.1% | 23 / 17 min | 65% | ~~1.4 h~~ / 0.7 h |
+| x5, 12 | Random | 1.6 / 1.5 min | 7.1% / 8.1% | 124 / 76 min | 15% | ~~29.7 h~~ / 29.1 h |
+| x5, 12 | Class-based ABC | 2.6 / 2.7 min | 12.9% / 15.8% | 93 / 66 min | 39% | ~~21.6 h~~ / 20.6 h |
+| x5, 12 | Full velocity | 3.2 / 3.3 min | 16.6% / 20.3% | 88 / 63 min | 67% | ~~20.4 h~~ / 19.3 h |
+| x5, 12 | Aisle-based velocity | 4.8 / 5.3 min | 23.9% / 29.1% | 97 / 81 min | 82% | ~~22.7 h~~ / 21.8 h |
+| x10, 23 | Random | 4.0 / 3.7 min | 16.0% / 18.1% | 166 / 108 min | 17% | ~~84.2 h~~ / 83.6 h |
+| x10, 23 | Class-based ABC | 7.1 / 7.5 min | 29.2% / 34.4% | 160 / 127 min | 48% | ~~80.9 h~~ / 80.2 h |
+| x10, 23 | Full velocity | 11.4 / 11.0 min | 41.8% / 45.7% | 205 / 161 min | 85% | ~~109.9 h~~ / 109.5 h |
+| x10, 23 | Aisle-based velocity | 18.4 / 18.7 min | 54.8% / 59.2% | 295 / 269 min | 94% | ~~172.2 h~~ / 172.1 h |
 
-*Cycle time = order arrival to completion (queue + picking). All 128 simulated configurations, including overtime, utilisation and hourly throughput, are in `data/processed/congestion_simulation.csv`.*
+*Cycle time = order arrival to completion (queue + picking). All 128 simulated configurations, including overtime, utilisation and hourly throughput, are in `data/processed/congestion_simulation.csv`. Overtime = picker-hours per day after 18:00. The struck-through values use 8a's original, **wrong definition** (from 18:00 until each picker's last order, which also counts idle evening waiting); the corrected values count only time spent on orders after 18:00 (Module 8b's definition), recomputed in Module 8c by re-simulating these configurations, which reproduced every other stored metric exactly. All other overtime figures in 8a's CSV still use the wrong definition.*
 
 ![Congestion](reports/figures/09_congestion.png)
 
@@ -268,6 +268,28 @@ Module 8a is the **strict model**: a whole 50 m aisle holds one picker. Module 8
 
 *Overtime note:* 8a counted overtime from 18:00 until each picker's last order. On Thursday evenings, idle pickers who each picked up one late order were therefore counted as working all evening (at x1 with 8 pickers: 7.4 picker-hours counted vs. 1.95 hours of actual work after 18:00). The 8b service level and cost use overtime **work** (time spent on orders after 18:00). The 8a definition is kept in the CSV for comparison.
 
+### Order cut-off and staffing (Module 8c)
+
+Module 8b's service level failed at x5 and x10 mostly because of evening orders (Thursdays until about 20:00). Module 8c adds an **order cut-off**: orders arriving before it must be picked the same day (>= 95%), orders arriving after it by **10:00 the next working day** (>= 95%). There is no night picking: post-cut-off orders are picked during the shift only when nothing else is waiting, and the rest carry over to the next morning, where they go first. The overtime rule is 8b's (overtime work per picker <= 30 min on >= 95% of days). Because work carries over, the year is simulated day by day in order. Scope (runtime: the full brief was ~3 h): Full velocity, narrow aisles, S-shape, wait; cut-offs 16:00 / 17:00 / 18:00; team sizes x1 3, 4, 5, 6, 8; x5 14, 18, 24; x10 28, 36, 44. Without a cut-off (24:00) the model reproduces Module 8b exactly.
+
+| Volume | Cut-off | Smallest team meeting the service level | Unit cost per order | Cycle time | Orders carried to the next day | Speed-based (8b) |
+|---|---|---|---|---|---|---|
+| x1 | 16:00 | **4** (fails at 3) | 0.62 | 42 min | 2.3% | 6 |
+| x1 | 17:00 | **4** (fails at 3) | 0.62 | 40 min | 2.0% | 6 |
+| x1 | 18:00 | **4** (fails at 3) | 0.63 | 37 min | 1.8% | 6 |
+| x1 | none (8b) | 6 | 0.94 | 17 min | - | 6 |
+| x5 | 16:00 / 17:00 / 18:00 | **24** (fails at 18) | 0.75 | 36-38 min | 1.9-2.1% | >= 20 |
+| x5 | none (8b) | > 20 | - | - | - | >= 20 |
+| x10 | 16:00 / 17:00 / 18:00 | > 44 (at 44: 92-95% of days within the overtime limit) | - | - | 1.8-2.8% at 44 | >= 40 |
+
+*Unit cost = pickers x 10 h + overtime work hours x 1.5 (wage 1 unit/h), per order. Carried = share of all orders picked on a later working day. Full results: `data/processed/cutoff_service.csv`.*
+
+![Cut-off and staffing](reports/figures/11_cutoff_staffing.png)
+
+- **1. Cost-based team with a cut-off:** x1 needs **4 pickers instead of 6** (-34% cost per order, 0.62 vs. 0.94 units). x5 needs more than 18 and at most 24 (8b without a cut-off: not met even at 20). x10 still misses at 44 pickers, but only just with a 16:00 cut-off (94.8% of days within the overtime limit). At x5 and x10 the binding constraint is now overtime on peak days: work that arrives before the cut-off but cannot be finished by 18:00.
+- **2. One hour earlier:** within the team sizes tested, moving the cut-off from 18:00 to 17:00 or 16:00 does not reduce the smallest compliant team at any volume: x1 stays at 4, x5 at 24 (the grid has no points between 18 and 24). The saving comes from having a cut-off at all, i.e. no evening picking: at x1, an 18:00 cut-off already brings the team from 6 to 4. An earlier cut-off does help at a fixed team size: each hour earlier adds up to 5 percentage points of days within the overtime limit at x5 and x10 (x10 with 44 pickers: 92.1% at 18:00, 93.1% at 17:00, 94.8% at 16:00), but it also makes more orders miss next-morning delivery when the team is small (x10 with 28 pickers, 16:00: only 92.5% of post-cut-off orders are done by 10:00).
+- **3. Is the carry-over acceptable?** With a compliant team, 1.8-2.3% of orders are picked the next morning. With an 18:00 cut-off these are exactly the 1.8% of orders that arrive after the shift. 98.6-99.7% of them are done by 10:00. An earlier cut-off does not increase the carry-over much, because idle pickers still pick post-cut-off orders during the shift. With an undersized team it rises to 4-6% (16:00 cut-off), and the next-morning target is missed. For a B2B wholesaler whose customers order through the day, about 2% next-morning orders is a normal trade-off for not staffing the evening.
+
 ## Approach
 
 | # | Module | Status |
@@ -281,6 +303,7 @@ Module 8a is the **strict model**: a whole 50 m aisle holds one picker. Module 8
 | 7 | **Optimal routing:** warehouse graph, per-order TSP with OR-Tools (validated against exact Held-Karp), a Combined routing rule, 4 slotting x 5 routing grid | ✅ Done |
 | 8a | **Multi-picker congestion:** SimPy discrete-event simulation of a picker team with one-picker aisles, 3 volumes x 4 layouts x 2 routes x 5 team sizes, staffing knee | ✅ Done |
 | 8b | **Refined congestion model:** 5 m aisle segments (narrow/wide) with a deadlock-free step-aside rule, Spread velocity slotting, skip-and-return policy, cost-based team size | ✅ Done |
+| 8c | **Order cut-off and staffing:** cut-off based service level with next-morning carry-over, smallest compliant team per volume and cut-off; corrected 8a overtime | ✅ Done |
 
 ### Why pick frequency instead of revenue?
 A high-revenue SKU is not necessarily a frequently picked SKU. Slotting decisions should be driven by **how many times** an item is picked, because each pick line means one trip to the location.
@@ -311,6 +334,7 @@ python src/06_reslotting_policies.py   # 7 re-slotting policies, simulated month
 python src/07_optimal_routing.py       # optimal (OR-Tools TSP) vs. simple routing rules (~24 min on 8 cores)
 python src/08_congestion_simulation.py # multi-picker congestion simulation (~31 min on 8 cores, incl. ~12 min tour cache)
 python src/08b_congestion_refined.py   # segment-level aisles, spread slotting, skip-and-return (~46 min on 8 cores)
+python src/08c_cutoff_service.py       # order cut-off and staffing; corrected 8a overtime (~28 min on 8 cores)
 
 # Tests (the S-shape distance is checked against hand-calculated routes)
 python -m pytest tests/                # or: python tests/test_routing.py
