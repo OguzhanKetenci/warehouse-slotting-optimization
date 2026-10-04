@@ -169,22 +169,41 @@ Modules 2-6 route orders with simple rules. Module 7 asks **how far those rules 
 
 Every module above assumes one picker alone in the warehouse. Module 8a simulates a whole team (SimPy discrete-event simulation): orders drop into a FIFO queue at their real invoice time, idle pickers pull the next one, walk its route at 1 m/s, spend 10 s per SKU and 60 s per order on set-up and hand-over. **An aisle holds one picker at a time** - anyone else waits at the aisle end. Shift 08:00-18:00 (98% of orders arrive in that window); leftover work is finished as overtime. Volume x1 (the real year: 19,773 orders on 305 days), x5 and x10 (each order copied with a random +-30 min shift on the same day), 4 layouts (Random and Class-based ABC with one seed), S-shape and optimal routes (Module 7's OR-Tools tours, cached). Picker counts per volume: x1 2-8, x5 8-24, x10 15-40 (5 each; see methodology for how the ranges were chosen).
 
-At a mid-range team size per volume (S-shape / optimal routing):
+At a mid-range team size per volume:
 
-| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles (S-shape) | Overtime per day (S-shape) |
+**S-shape routing**
+
+| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time | Share of waiting in the 5 front aisles | Overtime per day |
 |---|---|---|---|---|---|---|
-| x1, 4 | Random | 0.4 / 0.3 min | 1.8% / 1.9% | 41 / 26 min | 13% | 1.6 h |
-| x1, 4 | Class-based ABC | 0.6 / 0.5 min | 3.4% / 3.7% | 28 / 20 min | 31% | 0.9 h |
-| x1, 4 | Full velocity | 0.6 / 0.6 min | 3.9% / 4.3% | 25 / 17 min | 54% | 0.8 h |
-| x1, 4 | Aisle-based velocity | 0.7 / 0.7 min | 4.6% / 5.1% | 23 / 17 min | 65% | 0.7 h |
-| x5, 12 | Random | 1.6 / 1.5 min | 7.1% / 8.1% | 124 / 76 min | 15% | 29.1 h |
-| x5, 12 | Class-based ABC | 2.6 / 2.7 min | 12.9% / 15.8% | 93 / 66 min | 39% | 20.6 h |
-| x5, 12 | Full velocity | 3.2 / 3.3 min | 16.6% / 20.3% | 88 / 63 min | 67% | 19.3 h |
-| x5, 12 | Aisle-based velocity | 4.8 / 5.3 min | 23.9% / 29.1% | 97 / 81 min | 82% | 21.8 h |
-| x10, 23 | Random | 4.0 / 3.7 min | 16.0% / 18.1% | 166 / 108 min | 17% | 83.6 h |
-| x10, 23 | Class-based ABC | 7.1 / 7.5 min | 29.2% / 34.4% | 160 / 127 min | 48% | 80.2 h |
-| x10, 23 | Full velocity | 11.4 / 11.0 min | 41.8% / 45.7% | 205 / 161 min | 85% | 109.5 h |
-| x10, 23 | Aisle-based velocity | 18.4 / 18.7 min | 54.8% / 59.2% | 295 / 269 min | 94% | 172.1 h |
+| x1, 4 | Random | 0.4 min | 1.8% | 41 min | 13% | 1.6 h |
+| x1, 4 | Class-based ABC | 0.6 min | 3.4% | 28 min | 31% | 0.9 h |
+| x1, 4 | Full velocity | 0.6 min | 3.9% | 25 min | 54% | 0.8 h |
+| x1, 4 | Aisle-based velocity | 0.7 min | 4.6% | 23 min | 65% | 0.7 h |
+| x5, 12 | Random | 1.6 min | 7.1% | 124 min | 15% | 29.1 h |
+| x5, 12 | Class-based ABC | 2.6 min | 12.9% | 93 min | 39% | 20.6 h |
+| x5, 12 | Full velocity | 3.2 min | 16.6% | 88 min | 67% | 19.3 h |
+| x5, 12 | Aisle-based velocity | 4.8 min | 23.9% | 97 min | 82% | 21.8 h |
+| x10, 23 | Random | 4.0 min | 16.0% | 166 min | 17% | 83.6 h |
+| x10, 23 | Class-based ABC | 7.1 min | 29.2% | 160 min | 48% | 80.2 h |
+| x10, 23 | Full velocity | 11.4 min | 41.8% | 205 min | 85% | 109.5 h |
+| x10, 23 | Aisle-based velocity | 18.4 min | 54.8% | 295 min | 94% | 172.1 h |
+
+**Optimal routing**
+
+| Volume, pickers | Layout | Aisle wait per order | Waiting / work time | Order cycle time |
+|---|---|---|---|---|
+| x1, 4 | Random | 0.3 min | 1.9% | 26 min |
+| x1, 4 | Class-based ABC | 0.5 min | 3.7% | 20 min |
+| x1, 4 | Full velocity | 0.6 min | 4.3% | 17 min |
+| x1, 4 | Aisle-based velocity | 0.7 min | 5.1% | 17 min |
+| x5, 12 | Random | 1.5 min | 8.1% | 76 min |
+| x5, 12 | Class-based ABC | 2.7 min | 15.8% | 66 min |
+| x5, 12 | Full velocity | 3.3 min | 20.3% | 63 min |
+| x5, 12 | Aisle-based velocity | 5.3 min | 29.1% | 81 min |
+| x10, 23 | Random | 3.7 min | 18.1% | 108 min |
+| x10, 23 | Class-based ABC | 7.5 min | 34.4% | 127 min |
+| x10, 23 | Full velocity | 11.0 min | 45.7% | 161 min |
+| x10, 23 | Aisle-based velocity | 18.7 min | 59.2% | 269 min |
 
 *Cycle time = order arrival to completion (queue + picking). All 128 simulated configurations, including overtime, utilisation and hourly throughput, are in `data/processed/congestion_simulation.csv`. Overtime = picker-hours per day spent on orders after 18:00 (Module 8b's definition), recomputed in Module 8c by re-simulating these configurations, which reproduced every other stored metric exactly. The overtime column in 8a's CSV uses 8a's original definition, which also counted idle evening time.*
 
@@ -208,9 +227,11 @@ The cause is a hard bottleneck, not a staffing problem: under Aisle-based veloci
 
 | Volume | Random | Class-based ABC | Full velocity | Aisle-based velocity |
 |---|---|---|---|---|
-| x1 | 6 optimal / >=8 S-shape | 6 | 6 | 6 |
+| x1 | 6\* | 6 | 6 | 6 |
 | x5 | >=24 | >=24 | >=24 | 16 (bottleneck) |
 | x10 | >=40 | >=40 | 23 (bottleneck) | 15 (bottleneck) |
+
+\*Random at x1: 6 pickers with optimal routing, >=8 with S-shape.
 
 *">=": still improving at the largest team tested (thin grid, chosen for runtime). "Bottleneck": extra pickers stop helping because of the front-aisle limit, while cycle times stay at 1.1-1.3 hours (x5) and 2.7-5.3 hours (x10); the fix there is the layout, not the headcount.* At x1, 6 pickers give 14-25 min cycle times at 24-38% utilisation; 4 pickers already keep cycle times at 17-41 min.
 
@@ -279,9 +300,9 @@ Module 8b's service level failed at x5 and x10 mostly because of evening orders 
 | x1 | 17:00 | **4** (fails at 3) | 0.62 | 40 min | 2.0% | 6 |
 | x1 | 18:00 | **4** (fails at 3) | 0.63 | 37 min | 1.8% | 6 |
 | x1 | none (8b) | 6 | 0.94 | 17 min | - | 6 |
-| x5 | 16:00 / 17:00 / 18:00 | **24** (fails at 18) | 0.75 | 36-38 min | 1.9-2.1% | >= 20 |
+| x5 | 16:00, 17:00, 18:00 | **24** (fails at 18) | 0.75 | 36-38 min | 1.9-2.1% | >= 20 |
 | x5 | none (8b) | > 20 | - | - | - | >= 20 |
-| x10 | 16:00 / 17:00 / 18:00 | > 44 (at 44: 92-95% of days within the overtime limit) | - | - | 1.8-2.8% at 44 | >= 40 |
+| x10 | 16:00, 17:00, 18:00 | > 44 (at 44: 92-95% of days within the overtime limit) | - | - | 1.8-2.8% at 44 | >= 40 |
 
 *Unit cost = pickers x 10 h + overtime work hours x 1.5 (wage 1 unit/h), per order. Carried = share of all orders picked on a later working day. Full results: `data/processed/cutoff_service.csv`.*
 
