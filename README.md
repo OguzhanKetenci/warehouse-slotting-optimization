@@ -1,6 +1,6 @@
 # Warehouse Slotting & Picking Optimization
 
-> **Where should a warehouse store each product, and how should pickers walk, so that orders are picked with less walking and fewer people?** Real orders from a UK online wholesaler (19,773 orders over 305 working days) are routed through a modeled 40-aisle warehouse. Result: walking drops by 13-25% per lever, and an 18:00 order cut-off lets a smaller team do the same work.
+> **Where should a warehouse store each product, and how should pickers walk, so that orders are picked with less walking and fewer people?** Real orders from a UK online wholesaler (19,773 orders over 305 working days) are routed through a modeled 40-aisle warehouse. Result: walking drops by 18-25% per lever, and an 18:00 order cut-off lets a smaller team do the same work.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue) ![pandas](https://img.shields.io/badge/pandas-data%20analysis-150458) ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 
@@ -11,7 +11,7 @@
 - **Store fast sellers near dispatch:** Class-based ABC zoning (fast, medium and slow products in three zones by distance), with new products placed at the front of the middle zone, cuts walking by 18% on next year's orders (933 -> 764 m per order), with no ongoing moves.
 - **Route pickers better:** on the ABC layout, the shortest possible route instead of the common "walk every aisle end to end" route (S-shape) cuts walking by 25% (708 -> 531 m per order). A simple routing rule gets within 8% of the shortest route.
 - **Stop evening picking:** with an 18:00 order cut-off, the Class-based ABC layout needs 5 pickers instead of 8 at today's volume (38% lower picking cost per order).
-- **The 10x growth warning was a false alarm:** a strict model said fast sellers up front would jam the aisles at 10x volume. With realistic 5 m aisle sections they stay fastest (75 min vs. 118 min from order to picked).
+- **The 10x growth warning was a false alarm:** a strict model said fast sellers up front would jam the aisles at 10x volume. With realistic 5 m aisle sections they stay faster than random: Class-based ABC 82 min and Full velocity 75 min vs. 118 min for random, from order to picked.
 - **Re-slotting every month does not pay:** moving only the top 500 SKUs when their rank drifts saves just 115 h a year, and stops paying once a move takes more than about 4 minutes.
 
 ## Business case (Module 11)
@@ -46,7 +46,7 @@ How each number is calculated:
 ² In-sample: ranked and evaluated on the same last 12 months, Dec 2010 - Dec 2011 (**19,773 orders**, 305 working days). This is also the year used by the simulations. The two order bases differ because Module 6 needs 12 full months after the ranking year; so Random walking is 4,913 h a year in one and 5,125 h in the other, at the same 933 m per order.
 
 - **Levers are measured separately and cannot simply be added.**
-- **At today's volume pickers are 43–55% busy, so walking savings free capacity for growth rather than reduce headcount; team size is set by arrival peaks and evening orders. Idle time can be used for replenishment, cycle counting or re-slotting moves.**
+- **At today's volume pickers are under 60% busy, so walking savings free capacity for growth rather than reduce headcount; team size is set by arrival peaks and evening orders. Idle time can be used for replenishment, cycle counting or re-slotting moves.**
 
 ## Data vs. assumptions
 
@@ -69,7 +69,7 @@ How each number is calculated:
 |---|---|---|---|
 | 1 | What do the orders look like? | One third of SKUs make 80% of picks; the median order has 15 lines. | [Module 1](#module-1-order-profile) |
 | 2-3 | How much walking does velocity slotting save? | 24% (Class-based ABC) to 32% (Full velocity), in-sample. | [Modules 2-3](#modules-2-3-slotting-and-kpis) |
-| 4 | Does the saving hold on next year's orders? | About half of it: 13% to 19%; new SKUs explain most of the gap. | [Module 4](#module-4-out-of-sample-check) |
+| 4 | Does the saving hold on next year's orders? | About half of it: 13% to 19%; new SKUs explain most of the gap. Aisle-based velocity keeps more (30%). | [Module 4](#module-4-out-of-sample-check) |
 | 5 | Does the best layout depend on the routing rule? | Yes for the precise layouts; Class-based ABC is robust under all rules. | [Module 5](#module-5-routing-sensitivity) |
 | 6 | How often should products be moved? | Rarely: static zoning plus new SKUs in the B zone; re-slot the top 500 only if a move takes under ~4 min. | [Module 6](#module-6-re-slotting-policies) |
 | 7 | How far are simple routing rules from optimal? | The best simple rule is 4-8% above optimal; S-shape is 21-45% above. | [Module 7](#module-7-optimal-routing) |
@@ -170,6 +170,19 @@ The two splits - built from non-overlapping years of data - agree closely (class
 - SKUs with no pick history in the ranking period (514 of 3,791 SKUs / 16.2% of visits, 6+6; 651 of 3,789 SKUs / 18.7% of visits, year-over-year) are ranked last by construction. Excluding their visits recovers most of the in-sample saving: seen-only reductions (23.8-31.9%) sit close to the in-sample figures (24.4-35.0%).
 - So **10-13 percentage points of the out-of-sample gap is specifically the cost of slotting items with no pick history**; the remaining 1-4 points is ordinary pick-frequency drift among SKUs that were already known.
 - Practically, this argues for a new-SKU policy (provisional slotting from a category/supplier proxy, then a fast re-check after the first weeks of sales) rather than against velocity-based slotting itself.
+
+**Added in Module 11: Aisle-based velocity.** Module 5 added Aisle-based velocity after this check was built, so it was not tested out-of-sample at first. Module 11 runs it on the same two splits with Module 4's own code (which reproduces every number above exactly):
+
+*What to read here: the out-of-sample column; Aisle-based velocity keeps much more of its saving than Full velocity.*
+
+| Scenario | Split | In-sample reduction | Out-of-sample reduction | Reduction, seen-only visits | New-SKU effect |
+|---|---|---|---|---|---|
+| Aisle-based velocity | 6+6 months | -40.4% | **-28.9%** | -36.3% | 7.4 pp |
+| Aisle-based velocity | Year-over-year | -37.2% | **-29.7%** | -37.5% | 7.7 pp |
+
+- On next year's orders Aisle-based velocity saves 29.7% of walking, against 18.6% for Full velocity and 12.6% for Class-based ABC (S-shape routing).
+- The reason is where products without pick history go. Every layout puts them in its last slots. For Full velocity these are the back ends of 17 aisles; for Aisle-based velocity, 7 whole aisles at the far end. With S-shape routing every extra aisle costs a full walk-through, so pickers enter 2.74 aisles per order only for new products under Full velocity, and 1.56 under Aisle-based velocity.
+- The recommendation (Class-based ABC with new products in the B zone) is not changed here; see Module 11.
 
 ![In-sample vs. out-of-sample](reports/figures/05_in_vs_out_of_sample.png)
 
@@ -482,9 +495,11 @@ Module 8c tested the cut-off on Full velocity only, while the recommended layout
 - **The cut-off saves 2-3 pickers on every layout.** It removes evening picking, which is what forces the larger team without a cut-off.
 - **Class-based ABC needs one picker more than the velocity layouts.** With 4 pickers and a cut-off, ABC meets the same-day and next-morning targets, but only 92.8% of days stay within the overtime limit (95% needed). Full velocity reaches 96.1% and Aisle-based velocity 97.0%. Longer walks mean more pre-cut-off work runs past 18:00 on peak days.
 - **For staffing, the cut-off matters more than the layout:** Class-based ABC with a cut-off (5 pickers) needs fewer people than Full velocity without one (6).
+
+**Out-of-sample check for Aisle-based velocity.** Module 4 tested only Class-based ABC and Full velocity on next year's orders. Module 11 adds Aisle-based velocity with Module 4's splits and code; the result is in the [Module 4 section](#module-4-out-of-sample-check): 29.7% less walking on next year's orders (year-over-year split, S-shape), against 18.6% for Full velocity. Full results: `data/processed/aisle_out_of_sample.csv`. This result is reported, but the recommendation has not been changed yet.
 - **Cost:** for Class-based ABC, 1.25 -> 0.78 wage-hours per order (-38%), or 9,307 wage-hours a year.
 
-The summary figure at the top (`reports/figures/00_summary.png`, plus a 1200 x 1500 px version, `linkedin_summary.png`) is drawn by the same script from earlier modules' CSVs.
+The summary figure at the top (`reports/figures/00_summary.png`, plus a 1200 x 1500 px version, `linkedin_summary.png`) is drawn by the same script from earlier modules' CSVs. In panel 1, the next-year bar for Class-based ABC is the recommended version with the new-product rule (P7, Module 6: 764 m vs. 933 m for Random, -18.1%); in the same year there are no new products, so the rule changes nothing there.
 
 </details>
 

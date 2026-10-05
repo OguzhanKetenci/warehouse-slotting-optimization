@@ -96,6 +96,58 @@ def smallest_teams(res: pd.DataFrame) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------------------
+# Out-of-sample check for Aisle-based velocity (Module 4's splits and code)
+# ----------------------------------------------------------------------------
+def aisle_out_of_sample() -> pd.DataFrame:
+    """Module 4's two splits with Aisle-based velocity added (in-sample and out-of-sample, both
+    visit scopes). Module 4's own scenarios are re-run with its code and must reproduce
+    out_of_sample_results.csv exactly; only the Aisle-based rows are new."""
+    m4 = load_module("04_out_of_sample_check.py", "out_of_sample_check")
+    m1 = load_module("01_order_profile_abc.py", "order_profile_abc")
+    h6, f6, _ = m4.within_year_periods()
+    codes6 = sorted(pd.read_csv(PROC / "sku_velocity.csv", dtype={"StockCode": str})["StockCode"])
+    hy, fy, _ = m4.year_over_year_periods(m1)
+    codesy = sorted(fy["StockCode"].unique())
+    runs = []
+    for split, hist, fut, codes in ((m4.SPLIT_6_6, h6, f6, codes6), (m4.SPLIT_YOY, hy, fy, codesy)):
+        base, _ = m4.run_split(sr, m1.abc_class, split, hist, fut, codes)
+        layout, _ = m4.size_layout(sr, len(codes))
+        near_cut = int(round(sr.NEAR_SLOT_SHARE * len(layout)))
+        idx = pd.Series(np.arange(len(codes)), index=codes)
+        vo, vs = m4.order_visits(fut, idx)
+        hist_pick, _ = m4.sku_stats(hist, codes, m1.abc_class)
+        eval_pick, _ = m4.sku_stats(fut, codes, m1.abc_class)
+        seen = hist_pick[vs] > 0
+        rows = []
+        for basis, pick in ((m4.BASIS_IN, eval_pick), (m4.BASIS_OUT, hist_pick)):
+            ranks = m5.slot_aisle_based_velocity(pick, layout)
+            scopes = ((m4.SCOPE_ALL, vo, vs),) + (((m4.SCOPE_SEEN, vo[seen], vs[seen]),) if basis == m4.BASIS_OUT else ())
+            for scope, o, s in scopes:
+                avg, km, near = sr.evaluate(ranks, layout, o, s, near_cut)
+                rows.append({"split": split, "scenario": m5.SCENARIO_AISLE, "ranking_basis": basis, "visit_scope": scope,
+                             "seed": None, "avg_distance_per_order_m": avg, "total_distance_km": km,
+                             "share_picks_nearest_20pct_slots": near, "n_orders_evaluated": len(np.unique(o))})
+        runs += [base, pd.DataFrame(rows)]
+    runs = pd.concat(runs, ignore_index=True)
+    order = []
+    for split in (m4.SPLIT_6_6, m4.SPLIT_YOY):
+        order += [(split, sr.SCENARIO_RANDOM, m4.BASIS_NONE, m4.SCOPE_ALL), (split, sr.SCENARIO_RANDOM, m4.BASIS_NONE, m4.SCOPE_SEEN)]
+        for s in (sr.SCENARIO_CLASS, sr.SCENARIO_VELOCITY, m5.SCENARIO_AISLE):
+            order += [(split, s, m4.BASIS_IN, m4.SCOPE_ALL), (split, s, m4.BASIS_OUT, m4.SCOPE_ALL),
+                      (split, s, m4.BASIS_OUT, m4.SCOPE_SEEN)]
+    res = m4.summarize(runs, sr.SCENARIO_RANDOM, order)
+    ref = pd.read_csv(PROC / "out_of_sample_results.csv")
+    keys = ["split", "visit_scope", "scenario", "ranking_basis"]
+    m = res.merge(ref, on=keys, suffixes=("", "_m4"))
+    assert len(m) == len(ref), f"expected {len(ref)} Module 4 rows, matched {len(m)}"
+    diff = max(float((m[c] - m[f"{c}_m4"]).abs().max()) for c in ("avg_distance_per_order_m", "change_vs_random"))
+    if diff > 1e-9:
+        raise AssertionError(f"re-run does not reproduce Module 4 (max |diff| {diff})")
+    print(f"Check OK: re-run reproduces all {len(ref)} Module 4 rows (max |diff| {diff:.1e}).")
+    return res[res["scenario"] == m5.SCENARIO_AISLE].reset_index(drop=True)
+
+
+# ----------------------------------------------------------------------------
 # Summary figure (numbers read from earlier modules' CSVs, nothing recomputed)
 # ----------------------------------------------------------------------------
 INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
@@ -110,7 +162,15 @@ def summary_data() -> dict:
     oos = pd.read_csv(PROC / "out_of_sample_results.csv")
     oos = oos[(oos["split"] == "year-over-year") & (oos["visit_scope"] == "all_visits")
               & (oos["ranking_basis"] == "out_of_sample")].set_index("scenario")["change_vs_random"]
-    walk = [(s, -100 * rs[s], -100 * oos[s] if s in oos else np.nan) for s in LAYOUTS[1:]]
+    # Next year: Class-based ABC is shown as the recommended P7 (ABC + new SKUs at the front of the B
+    # zone, Module 6, static, same evaluation year and random baseline as Module 4's year-over-year
+    # split); in-sample there are no new SKUs, so the rule changes nothing there.
+    pol = pd.read_csv(PROC / "reslotting_policies.csv").set_index("policy")["avg_distance_per_order_m"]
+    oos[sr.SCENARIO_CLASS] = pol["P7 P1 + new-SKU-to-B"] / pol["Random (baseline)"] - 1
+    aisle = pd.read_csv(PROC / "aisle_out_of_sample.csv")
+    oos[m5.SCENARIO_AISLE] = aisle.loc[(aisle["split"] == "year-over-year") & (aisle["visit_scope"] == "all_visits")
+                                       & (aisle["ranking_basis"] == "out_of_sample"), "change_vs_random"].item()
+    walk = [(s, -100 * rs[s], -100 * oos[s]) for s in LAYOUTS[1:]]
     a = pd.read_csv(PROC / "congestion_simulation.csv")
     a = a[(a["case"] == "base") & (a["volume"] == 10) & (a["pickers"] == 23) & (a["route"] == "S-shape")]
     b = pd.read_csv(PROC / "congestion_refined.csv")
@@ -149,14 +209,16 @@ def _bars(ax, labels, before, after, names, fmt, fs, missing="not tested"):
 
 def plot_summary(d: dict, path: Path, size_in, dpi, fs) -> None:
     fig, axes = plt.subplots(3, 1, figsize=size_in)
-    titles = ("1. Smart storage: 13-19% less walking next year",
+    w = d["walk"]
+    nxt = np.array([v for *_, v in w])
+    titles = (f"1. Smart storage: {nxt.min():.0f}-{nxt.max():.0f}% less walking next year",
               "2. At 10x volume, the aisle jam was a false alarm",
               "3. An 18:00 order cut-off saves 2-3 pickers today")
     subs = ("Walking saved vs. a random layout, S-shape route (%)",
             "Minutes from order to picked, 10x volume, 23 pickers",
             "Smallest team meeting the service level, today's volume")
-    w = d["walk"]
-    _bars(axes[0], [SHORT[s] for s, *_ in w], np.array([v for _, v, _ in w]), np.array([v for *_, v in w]),
+    labels = [SHORT[s] + ("\n+ new-product rule" if s == sr.SCENARIO_CLASS else "") for s, *_ in w]
+    _bars(axes[0], labels, np.array([v for _, v, _ in w]), nxt,
           ("Same year (in-sample)", "Next year (out-of-sample)"), lambda v: f"{v:.0f}%", fs)
     c = d["cycle"]
     _bars(axes[1], [SHORT[s] for s, *_ in c], np.array([v for _, v, _ in c]), np.array([v for *_, v in c]),
@@ -181,6 +243,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--estimate", action="store_true")
     ap.add_argument("--plot-only", action="store_true")
+    ap.add_argument("--out-of-sample", action="store_true", help="only the Aisle-based out-of-sample check")
     ap.add_argument("--workers", type=int, default=os.cpu_count())
     args = ap.parse_args()
     cfgs = configs()
@@ -191,7 +254,15 @@ def main() -> None:
         print(f"  {len(cfgs)} configurations: ~{len(cfgs) * r['runtime_s'] * 1.9 / args.workers / 60:.1f} min "
               f"on {args.workers} processes (x1.9 parallel slowdown seen in 8c)")
         return
-    if not args.plot_only:
+    if args.out_of_sample or not args.plot_only:
+        t0 = time.perf_counter()
+        oos = aisle_out_of_sample()
+        oos.to_csv(PROC / "aisle_out_of_sample.csv", index=False)
+        print("\n--- AISLE-BASED VELOCITY, OUT-OF-SAMPLE (Module 4 splits, S-shape) ---")
+        print(oos.drop(columns=["avg_distance_per_order_min_m", "avg_distance_per_order_max_m"])
+              .to_string(index=False, float_format=lambda v: f"{v:,.4f}"))
+        print(f"({time.perf_counter() - t0:.0f} s)")
+    if not args.plot_only and not args.out_of_sample:
         t0 = time.perf_counter()
         print(f"Scope: {len(cfgs)} x1 configurations on {args.workers} processes", flush=True)
         with Pool(args.workers) as pool:
