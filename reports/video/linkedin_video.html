@@ -80,8 +80,11 @@ function worker(x,y,a,ph,o={}){X.save();X.globalAlpha=o.alpha??1;X.translate(x,y
  X.fillStyle=COL.safety;X.beginPath();X.arc(.6,0,4.3,0,7);X.fill();X.fillStyle='rgba(0,0,0,.25)';X.fillRect(3.6,-2.4,1.8,4.8);X.fillStyle='rgba(255,255,255,.35)';X.beginPath();X.arc(-.3,-1.2,1.3,0,7);X.fill();X.restore()}
 function posAt(p,f){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);L*=cl(f);let acc=0,ang=-Math.PI/2;for(let i=1;i<p.length;i++){const dx=p[i][0]-p[i-1][0],dy=p[i][1]-p[i-1][1],s=Math.hypot(dx,dy);if(s===0)continue;ang=Math.atan2(dy,dx);if(acc+s>=L){const r=(L-acc)/s;return[p[i-1][0]+dx*r,p[i-1][1]+dy*r,ang,i]}acc+=s}const n=p.length;return[p[n-1][0],p[n-1][1],ang,n]}
 function trail(p,f,col,wd=3,ga=1){if(f<=0)return null;const q=posAt(p,f);X.save();X.lineJoin='round';X.lineCap='round';[[wd*3,.18],[wd,.95]].forEach(([w,a])=>{X.globalAlpha=a*ga;X.strokeStyle=col;X.lineWidth=w;X.beginPath();X.moveTo(p[0][0],p[0][1]);for(let i=1;i<q[3];i++)X.lineTo(p[i][0],p[i][1]);X.lineTo(q[0],q[1]);X.stroke()});X.restore();return q}
-const loops=[[0,3,0],[2,6,.3],[4,8,.55],[1,9,.75],[5,7,.15]].map(([a,b,o])=>({p:[[ax(a),FRONT],[ax(a),BACK],[ax(b),BACK],[ax(b),FRONT],[ax(a),FRONT]],o}));
-function ambient(t){loops.forEach(l=>{const q=posAt(l.p,(t*.03+l.o)%1);worker(q[0],q[1],q[2],t*7)})}
+// VIDEO (polish): 9 pickers in the opening (storyboard: 5), drawn at 1.5x
+const loops=[[0,3,0],[2,6,.3],[4,8,.55],[1,9,.75],[5,7,.15],[0,5,.45],[3,9,.9],[6,9,.05],[1,4,.62]].map(([a,b,o])=>({p:[[ax(a),FRONT],[ax(a),BACK],[ax(b),BACK],[ax(b),FRONT],[ax(a),FRONT]],o}));
+function ambient(t){loops.forEach(l=>{const q=posAt(l.p,(t*.03+l.o)%1);worker(q[0],q[1],q[2],t*7,{sc:1.5})})}
+// VIDEO (polish): portfolio tag
+function tagPill(x,y,a,al='left'){if(a<=0)return;const s='Portfolio project · Case study';X.font='500 22px '+FB;const w=X.measureText(s).width+32,x0=al==='center'?x-w/2:x;X.globalAlpha=a;rr(x0,y,w,40,20);X.strokeStyle=COL.safety;X.lineWidth=1.5;X.stroke();X.globalAlpha=1;T(s,x0+16,y+28,22,COL.safety,a,{f:FB,w:500})}
 function head(tag,line1,line2,a,col2){X.fillStyle=COL.bg;X.fillRect(0,0,VW,OY+2);T(tag,40,92,MIN,COL.safety,a,{f:FM,w:500,ls:3});T(line1,40,160,60,COL.ink,a,{w:700,mw:640});if(line2)T(line2,40,222,60,col2||COL.ink,a,{w:700,mw:640})}
 function foot(){X.fillStyle=COL.bg;X.fillRect(0,OY+800,VW,VH-OY-800)}
 // VIDEO: legend in two rows (explanation at caption size, swatch labels at 24)
@@ -137,7 +140,7 @@ const STEP_T=[0.3,...[1,2,3,4].map(k=>0.3+k*3.3+sh('step'+k))];
 const ORD_T=[0,1,2,3].map(i=>14+i*2.75+sh('order'+i));
 const HOURS=[...Array(15).keys()].map(i=>6+i),OBH=VD.orders_by_hour.per_day,ST=VD.staffing;
 const S=[
-{name:'Hook',dur:4,f(t){wh(()=>{items('random','random',1,0);ambient(t);shadeW(.5)});head('WAREHOUSE OPERATIONS','Order pickers spend','half their shift walking.',fi(t,.1),COL.safety);
+{name:'Hook',dur:4,f(t){wh(()=>{items('random','random',1,0);shadeW(.15);ambient(t)});head('WAREHOUSE OPERATIONS','Order pickers spend','half their shift walking.',1,COL.safety);tagPill(40,18,1);
  foot();TW('19,773 real orders · 3,791 products · 12 months',360,1120,CAP,COL.ink,fi(t,1.6),{f:FB,w:500,al:'center',mw:620});T('Walking share: Tompkins et al., Facilities Planning',360,1236,MIN,COL.mute,fi(t,2.2),{f:FM,w:500,al:'center',mw:680})}},
 {name:'The problem',dur:4.5,f(t){wh(()=>{items('random','random',1,fi(t,.2,.8));walkOn(R.random_s,eo((t-.6)/2.6),COL.bad,t)});
  head('THE PROBLEM · RANDOM STORAGE','Products go to any','free slot. Even fast movers.',fi(t,0),COL.bad);X.save();X.translate(0,OY);legend(fi(t,.3));X.restore();
@@ -193,10 +196,10 @@ const S=[
 // VIDEO: rule cards widened to 600 px so the rule text is caption size
 {name:'Built for a WMS',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FROM ANALYSIS TO SYSTEM','Five rules a WMS','can run every day.',fi(t,0),COL.safety);
  const bx=40,by=400,bw=640,bh=572;X.strokeStyle=COL.safety;X.lineWidth=2;rr(bx,by,bw,bh,14);X.fillStyle='#16171a';X.fill();X.stroke();T('WMS',360,by+56,40,COL.safety,1,{al:'center',w:700,ls:6});
- const rules=[['SLOTTING','Frequency-ranked, re-tested on new data'],['NEW SKU','Mid-floor until it earns a rank'],['ROUTE','Optimal path, computed per order'],['CONGESTION','Busy aisle? Skip, come back'],['CUT-OFF','18:00, staff to the flattened load']];
+ const rules=[['SLOTTING','Frequency-ranked, re-tested on new data'],['NEW SKU','Mid-floor until it earns a rank'],['ROUTE','Optimal path, computed per order'],['CONGESTION','Busy aisle? Skip, come back'],['CUT-OFF','18:00, late orders wait for the morning']];
  rules.forEach((r,i)=>{const st=.5+i*.6,u=eo((t-st)/.7),tx=bx+20,ty=by+84+i*96,sx=i%2?760:-640,sy=ty+(i%2?-120:120),x=lerp(sx,tx,u),y=lerp(sy,ty,u);if(u<=0)return;rr(x,y,600,84,8);X.fillStyle=u>=1?'#1f2a22':'#1d1f23';X.fill();X.strokeStyle=u>=1?COL.good:'#3a3d42';X.lineWidth=1.5;X.stroke();T(r[0],x+20,y+30,MIN,COL.safety,1,{f:FM,w:500,ls:2});T(r[1],x+20,y+68,CAP,COL.ink,1,{f:FB,w:500,mw:520});if(u>=1)T('✓',x+580,y+52,30,COL.good,1,{al:'right',w:700})});
  TW('Each rule was tested on orders the model never saw.',360,1040,CAP,COL.mute,fi(t,3.6),{f:FB,w:400,al:'center',mw:420})}},
-{name:'Close',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);
+{name:'Close',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);tagPill(360,300,fi(t,.2),'center');
  T('Great warehouses',360,420,78,COL.ink,fi(t,.2),{al:'center',w:700});T('don’t move faster.',360,500,78,COL.ink,fi(t,.7),{al:'center',w:700});T('They walk less.',360,610,92,COL.safety,fi(t,1.6,.8),{al:'center',w:700});
  X.globalAlpha=fi(t,2.8);X.fillStyle=COL.safety;X.fillRect(330,700,60,4);X.globalAlpha=1;
  T('Oğuzhan Ketenci',360,790,46,COL.ink,fi(t,3),{al:'center',w:700});TW('Industrial Engineer · warehouse & supply chain analytics',360,840,CAP,COL.mute,fi(t,3.4),{f:FB,w:400,al:'center',mw:400});

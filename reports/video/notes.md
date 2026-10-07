@@ -149,3 +149,14 @@ Sources: `video_data.json`, built from `new_product_rule_routing.csv` (year-over
 
 - 2,745 frames in 100 s, 86 s on the 2026-10-08 re-render (Chromium canvas `toDataURL` PNG piped into ffmpeg, libx264 preset slow, CRF 18, yuv420p, faststart).
 - `ffprobe`: h264, 1080x1920, 30/1 fps, yuv420p, 91.500 s. The music version adds AAC audio of 91.500 s.
+
+## Polish (2026-10-08)
+
+- **WMS card:** "CUT-OFF: 18:00, staff to the flattened load" → "CUT-OFF: 18:00, late orders wait for the morning" (same mechanism fix as the staffing scene).
+- **Opening frame (feed thumbnail):**
+  - Warehouse overlay lightened from 0.5 to 0.15 opacity. The pickers are now drawn above the overlay.
+  - 9 pickers instead of 5, drawn at 1.5x size.
+  - The headline is fully visible from frame 0 (the fade-in was removed).
+- **Tag:** "Portfolio project · Case study" pill (33 px text). On the opening it shows from frame 0; on the closing card it fades in.
+- **Music sync unchanged:** no scene length changed (total 91.5 s), so "They walk less." still lands at 86.8 s, which is 4:02.2 in the track, on the drop.
+- **Re-render:** 2,745 frames in 99 s. Smallest text still 30 px. The contact sheet now uses frame 0 for the opening.
