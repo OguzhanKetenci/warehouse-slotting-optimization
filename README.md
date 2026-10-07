@@ -45,7 +45,7 @@ How each number is calculated:
 **Exception (Return-type routes):** if pickers enter each aisle and walk back out, Full velocity + new-product rule walks less: 683 m vs. 740 m per order on next year's orders (Module 11).
 
 ¹ Out-of-sample: products ranked on the prior year (Dec 2009 - Nov 2010) and evaluated on the next year, Dec 2010 - Nov 2011 (**18,957 orders**).
-² In-sample: ranked and evaluated on the same last 12 months, Dec 2010 - Dec 2011 (**19,773 orders**, 305 working days). This is also the year used by the simulations. The two order bases differ because Module 6 needs 12 full months after the ranking year; so Random walking is 4,913 h a year in one and 5,125 h in the other, at the same 933 m per order.
+² In-sample: ranked and evaluated on the same period, Dec 2010 – Dec 2011 (305 working days), **19,773 orders**. This is also the year used by the simulations. The two order bases differ because Module 6 needs 12 full months after the ranking year; so Random walking is 4,913 h a year in one and 5,125 h in the other, at the same 933 m per order.
 
 - **Levers are measured separately and cannot simply be added.**
 - **At today's volume pickers are under 60% busy, so walking savings free capacity for growth rather than reduce headcount; team size is set by arrival peaks and evening orders. Idle time can be used for replenishment, cycle counting or re-slotting moves.**
@@ -53,7 +53,7 @@ How each number is calculated:
 ## Data vs. assumptions
 
 **Real:**
-- Order data: UCI Online Retail II, 19,773 orders over 305 working days (Dec 2010 - Dec 2011), 3,791 SKUs, with real order timestamps and SKUs. The prior year (Dec 2009 - Nov 2010) is used only to rank products for the out-of-sample check.
+- Order data: UCI Online Retail II, Dec 2010 – Dec 2011 (305 working days): 19,773 orders, 3,791 SKUs, with real order timestamps and SKUs. The dataset's earlier sheet (1 Dec 2009 – 30 Nov 2010, 19,743 orders) is used only to rank products for the out-of-sample test, which is evaluated on 1 Dec 2010 – 30 Nov 2011 (18,957 orders; 1-9 Dec 2011 left out so both windows are 12 months).
 
 **Modeled (assumptions):**
 - Warehouse layout: 40 aisles x 2 racks x 50 slots (4,000 slots), 50 m aisles, 3 m between aisles, depot at the front left. The real retailer's layout is not public.
@@ -112,7 +112,7 @@ Terms used below:
 <details>
 <summary>In-sample, Class-based ABC cuts walking by 24% and Full velocity by 32% vs. a random layout.</summary>
 
-Real orders (UCI Online Retail II, last 12 months: 19,773 orders, 3,791 SKUs) routed with the S-shape heuristic through a synthetic 40-aisle warehouse.
+Real orders from UCI Online Retail II, Dec 2010 – Dec 2011 (305 working days): 19,773 orders, 3,791 SKUs, routed with the S-shape heuristic through a synthetic 40-aisle warehouse.
 
 *What to read here: the "Change vs. random" column; this is the in-sample upper bound.*
 
@@ -127,7 +127,7 @@ Real orders (UCI Online Retail II, last 12 months: 19,773 orders, 3,791 SKUs) ro
 
 - **Class-based ABC captures about three quarters of the full-velocity saving** with only three zones, which is why it is the more practical option in a real warehouse.
 - Orders are large (mean 26 lines, median 15), so picks still spread over many aisles even after re-slotting; this limits the achievable saving.
-- Slotting was ranked and evaluated on the same 12 months, so these figures are an upper bound for future orders (see the out-of-sample check below).
+- Slotting was ranked and evaluated on the same period (Dec 2010 – Dec 2011, 305 working days), so these figures are an upper bound for future orders (see the out-of-sample check below).
 
 ![Distance by scenario](reports/figures/03_distance_by_scenario.png)
 
@@ -144,7 +144,7 @@ Module 3 – Full tables: `reports/kpi_summary.xlsx` (KPI summary, assumptions, 
 
 The table above ranks SKUs with the same orders it evaluates. Module 4 checks how much of the saving survives when SKUs are ranked on *earlier* orders only, on two independent splits (same layout and S-shape routing in both):
 
-- **6+6 months** (within the last 12 months): rank on Dec 2010 - May 2011 (8,067 orders), evaluate on Jun - Dec 2011 (11,706 orders). Unequal halves; the evaluation half includes the autumn peak.
+- **6+6 months**, within Dec 2010 – Dec 2011 (305 working days): rank on Dec 2010 - May 2011 (8,067 orders), evaluate on Jun - Dec 2011 (11,706 orders). Unequal halves; the evaluation half includes the autumn peak.
 - **Year-over-year**: rank on the whole prior year, 1 Dec 2009 - 30 Nov 2010 (19,743 orders), evaluate on the whole following year, 1 Dec 2010 - 30 Nov 2011 (18,957 orders) - two equal, non-overlapping 12-month windows. Only SKUs actually picked in the evaluated year are slotted (3,789 SKUs, still under the 4,000-slot layout). The two source sheets share an exact 9-day overlap at their boundary (21,932 duplicate rows / 830 invoices), which is detected and removed before the split.
 
 *What to read here: the bold out-of-sample column; the year-over-year rows are the primary estimate.*
@@ -229,7 +229,7 @@ The two splits - built from non-overlapping years of data - agree closely (class
 <details>
 <summary>The best layout depends on the routing rule: Full velocity under Return, Aisle-based velocity under S-shape and Largest gap.</summary>
 
-Everything above assumes **S-shape** routing (every aisle with a pick is walked end to end). Module 5 asks: **does the best slotting method change with the routing policy?** It adds two more routing heuristics - **Return** (every aisle is entered from the front and left the way it came, never traversed end to end) and **Largest gap** (the first and last aisle are traversed end to end; every aisle between them skips its single largest unpicked gap, entered from both ends) - and a 4th, simpler slotting rule, **Aisle-based velocity** (the fastest SKUs fill the nearest aisle completely before moving to the next, rather than being ranked by exact walking distance). All 19,773 orders of the last 12 months, same layout as above.
+Everything above assumes **S-shape** routing (every aisle with a pick is walked end to end). Module 5 asks: **does the best slotting method change with the routing policy?** It adds two more routing heuristics - **Return** (every aisle is entered from the front and left the way it came, never traversed end to end) and **Largest gap** (the first and last aisle are traversed end to end; every aisle between them skips its single largest unpicked gap, entered from both ends) - and a 4th, simpler slotting rule, **Aisle-based velocity** (the fastest SKUs fill the nearest aisle completely before moving to the next, rather than being ranked by exact walking distance). All 19,773 orders of Dec 2010 – Dec 2011 (305 working days), same layout as above.
 
 *What to read here: compare percentages within a row only; the bold cell is the best layout for that routing rule.*
 
