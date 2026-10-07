@@ -141,7 +141,7 @@ const ORD_T=[0,1,2,3].map(i=>14+i*2.75+sh('order'+i));
 const HOURS=[...Array(15).keys()].map(i=>6+i),OBH=VD.orders_by_hour.per_day,ST=VD.staffing;
 const S=[
 {name:'Hook',dur:4,f(t){wh(()=>{items('random','random',1,0);shadeW(.15);ambient(t)});head('WAREHOUSE OPERATIONS','Order pickers spend','half their shift walking.',1,COL.safety);tagPill(40,18,1);
- foot();TW('19,773 real orders · 3,791 products · 12 months',360,1120,CAP,COL.ink,fi(t,1.6),{f:FB,w:500,al:'center',mw:620});T('Walking share: Tompkins et al., Facilities Planning',360,1236,MIN,COL.mute,fi(t,2.2),{f:FM,w:500,al:'center',mw:680})}},
+ foot();T('19,773 real orders · 3,791 products',360,1120,CAP,COL.ink,fi(t,1.6),{f:FB,w:500,al:'center'});T('1 Dec 2010 – 9 Dec 2011',360,1155,CAP,COL.ink,fi(t,1.6),{f:FB,w:500,al:'center'});T('Walking share: Tompkins et al., Facilities Planning',360,1236,MIN,COL.mute,fi(t,2.2),{f:FM,w:500,al:'center',mw:680})}},
 {name:'The problem',dur:4.5,f(t){wh(()=>{items('random','random',1,fi(t,.2,.8));walkOn(R.random_s,eo((t-.6)/2.6),COL.bad,t)});
  head('THE PROBLEM · RANDOM STORAGE','Products go to any','free slot. Even fast movers.',fi(t,0),COL.bad);X.save();X.translate(0,OY);legend(fi(t,.3));X.restore();
  foot();T(Math.round(LAD[0].m)+' m',40,1140,96,COL.bad,fi(t,1.6),{w:700});TW('walked per order on average, with random storage',40,1192,CAP,COL.ink,fi(t,2),{f:FB,w:500,mw:640},36)}},

@@ -142,7 +142,7 @@ Sources: `video_data.json`, built from `new_product_rule_routing.csv` (year-over
 | Staffing: wage-hours per order | not shown | 0.94 → 0.62 (added) | added |
 | Staffing: headline and caption | "Stop the evening rush with a cut-off." / "Same orders, fewer paid hours." | "A few late orders set the team size." / "Only 1.8% of orders arrive after 18:00, but on 1 day in 5. Picking them the same day takes 6 pickers to keep overtime within 30 min each." | yes (wording, see decision 12) |
 | Staffing: orders by hour | illustrative shape | real average-day profile, 06-20 h (peak 10.5 orders at 12:00; 1.8% after 18:00) | yes |
-| Hook: orders, products, months | 19,773 · 3,791 · 12 | 19,773 · 3,791 · 12 | no |
+| Hook: orders, products, span | 19,773 · 3,791 · 12 months | 19,773 · 3,791 · 1 Dec 2010 – 9 Dec 2011 | yes (2026-10-08: the data span is 374 calendar days, 12 months and 9 days, 305 working days) |
 | Hook: "half their shift walking" | Tompkins et al. | unchanged (external source, not a repo result) | no |
 
 ## Render
@@ -160,3 +160,9 @@ Sources: `video_data.json`, built from `new_product_rule_routing.csv` (year-over
 - **Tag:** "Portfolio project · Case study" pill (33 px text). On the opening it shows from frame 0; on the closing card it fades in.
 - **Music sync unchanged:** no scene length changed (total 91.5 s), so "They walk less." still lands at 86.8 s, which is 4:02.2 in the track, on the drop.
 - **Re-render:** 2,745 frames in 99 s. Smallest text still 30 px. The contact sheet now uses frame 0 for the opening.
+
+## Data span fix (2026-10-08)
+
+- **Real range:** `clean_lines.csv` runs from 1 Dec 2010 08:26 to 9 Dec 2011 12:50. That is 374 calendar days (12 months and 9 days) and 305 working days, with 19,773 orders and 3,791 SKUs.
+- **Opening text:** "12 months" in the opening scene is replaced by "1 Dec 2010 – 9 Dec 2011", on its own line below "19,773 real orders · 3,791 products".
+- **Re-render:** both videos and the contact sheet, 99 s. No timing changed, so the music sync is unchanged.
