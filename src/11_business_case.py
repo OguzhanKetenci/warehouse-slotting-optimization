@@ -5,15 +5,20 @@ Module 11 - Business Case: staffing per layout at today's volume, summary figure
    at x1 volume for all 4 layouts, with an 18:00 cut-off and without one (24:00 = Module 8b's
    cost-based service level), teams 3, 4, 5, 6, 8. Without a cut-off, Class-based ABC and Full
    velocity must reproduce Module 8b's stored rows exactly.
-2. Summary figures for the README (no new results; all numbers read from earlier modules' CSVs).
+2. Out-of-sample check for Aisle-based velocity on Module 4's two splits (Module 4's code re-run;
+   its stored rows must be reproduced exactly).
+3. Summary figures for the README (no new results; all numbers read from CSVs; panel 1's
+   next-year bars come from src/11b_new_product_rule.py, which must be run first).
 
-Input : as Modules 8a-8c; data/processed/{scenario_results,optimal_routing,congestion_simulation,
-        congestion_refined}.csv
+Input : as Modules 4 and 8a-8c; data/processed/{routing_sensitivity,new_product_rule_routing,
+        congestion_simulation,congestion_refined}.csv
 Run   : python src/11_business_case.py --estimate
         python src/11_business_case.py
+        python src/11_business_case.py --out-of-sample
         python src/11_business_case.py --plot-only
 Output:
   data/processed/staffing_by_layout_x1.csv
+  data/processed/aisle_out_of_sample.csv
   reports/figures/00_summary.png
   reports/figures/linkedin_summary.png
 """
@@ -159,18 +164,11 @@ SHORT = {sr.SCENARIO_RANDOM: "Random", sr.SCENARIO_CLASS: "Class-based\nABC", sr
 def summary_data() -> dict:
     rs = pd.read_csv(PROC / "routing_sensitivity.csv")
     rs = rs[rs["routing"] == "S-shape"].set_index("scenario")["change_vs_random"]
-    oos = pd.read_csv(PROC / "out_of_sample_results.csv")
-    oos = oos[(oos["split"] == "year-over-year") & (oos["visit_scope"] == "all_visits")
-              & (oos["ranking_basis"] == "out_of_sample")].set_index("scenario")["change_vs_random"]
-    # Next year: Class-based ABC is shown as the recommended P7 (ABC + new SKUs at the front of the B
-    # zone, Module 6, static, same evaluation year and random baseline as Module 4's year-over-year
-    # split); in-sample there are no new SKUs, so the rule changes nothing there.
-    pol = pd.read_csv(PROC / "reslotting_policies.csv").set_index("policy")["avg_distance_per_order_m"]
-    oos[sr.SCENARIO_CLASS] = pol["P7 P1 + new-SKU-to-B"] / pol["Random (baseline)"] - 1
-    aisle = pd.read_csv(PROC / "aisle_out_of_sample.csv")
-    oos[m5.SCENARIO_AISLE] = aisle.loc[(aisle["split"] == "year-over-year") & (aisle["visit_scope"] == "all_visits")
-                                       & (aisle["ranking_basis"] == "out_of_sample"), "change_vs_random"].item()
-    walk = [(s, -100 * rs[s], -100 * oos[s]) for s in LAYOUTS[1:]]
+    # Next year: every layout with the new-product rule (Module 11b, year-over-year split, S-shape);
+    # in-sample there are no new SKUs, so the rule changes nothing there.
+    npr = pd.read_csv(PROC / "new_product_rule_routing.csv")
+    npr = npr[(npr["split"] == "year-over-year") & (npr["route"] == "S-shape")].set_index("scenario")["change_vs_random"]
+    walk = [(s, -100 * rs[s], -100 * npr[s + " + new-product rule"]) for s in LAYOUTS[1:]]
     a = pd.read_csv(PROC / "congestion_simulation.csv")
     a = a[(a["case"] == "base") & (a["volume"] == 10) & (a["pickers"] == 23) & (a["route"] == "S-shape")]
     b = pd.read_csv(PROC / "congestion_refined.csv")
@@ -211,13 +209,13 @@ def plot_summary(d: dict, path: Path, size_in, dpi, fs) -> None:
     fig, axes = plt.subplots(3, 1, figsize=size_in)
     w = d["walk"]
     nxt = np.array([v for *_, v in w])
-    titles = (f"1. Smart storage: {nxt.min():.0f}-{nxt.max():.0f}% less walking next year",
+    titles = (f"1. Aisle-based storage: {nxt.max():.0f}% less walking next year",
               "2. At 10x volume, the aisle jam was a false alarm",
               "3. An 18:00 order cut-off saves 2-3 pickers today")
-    subs = ("Walking saved vs. a random layout, S-shape route (%)",
+    subs = ("Walking saved vs. a random layout, S-shape route, new-product rule (%)",
             "Minutes from order to picked, 10x volume, 23 pickers",
             "Smallest team meeting the service level, today's volume")
-    labels = [SHORT[s] + ("\n+ new-product rule" if s == sr.SCENARIO_CLASS else "") for s, *_ in w]
+    labels = [SHORT[s] for s, *_ in w]
     _bars(axes[0], labels, np.array([v for _, v, _ in w]), nxt,
           ("Same year (in-sample)", "Next year (out-of-sample)"), lambda v: f"{v:.0f}%", fs)
     c = d["cycle"]
