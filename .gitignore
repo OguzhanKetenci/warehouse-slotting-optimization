@@ -16,3 +16,8 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+
+# LinkedIn video: commercial music track and the video that contains it stay local; preview frames
+reports/video/music.mp3
+reports/video/linkedin_video.mp4
+reports/video/frames/

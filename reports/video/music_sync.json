@@ -1,0 +1,149 @@
+{
+ "bpm": 112.92,
+ "beat_period_s": 0.5313,
+ "start_offset_s": 155.4,
+ "track_biggest_moments_s": [
+  28.44,
+  38.55,
+  55.26,
+  148.43,
+  242.17
+ ],
+ "cut_shift_s": {
+  "problem": 0.0667,
+  "step1": 0.3,
+  "step2": 0.1667,
+  "step3": 0.0667,
+  "step4": 0.0,
+  "order0": 0.2667,
+  "order1": -0.3333,
+  "order2": 0.0667,
+  "order3": -0.5,
+  "congestion": 0.0333,
+  "close": -0.4
+ },
+ "moments": [
+  {
+   "moment": "\"933 m\" reveal",
+   "video_time_s": 5.767,
+   "track_time_s": 161.166,
+   "track_time": "2:41.166",
+   "beat_number": 303,
+   "downbeat": true,
+   "offset_from_beat_ms": -27,
+   "hit_strength": 1.09,
+   "drop_ratio": 1.1
+  },
+  {
+   "moment": "slotting ladder step 1 (boxes move, counter drops)",
+   "video_time_s": 16.4,
+   "track_time_s": 171.8,
+   "track_time": "2:51.800",
+   "beat_number": 323,
+   "downbeat": true,
+   "offset_from_beat_ms": -17,
+   "hit_strength": 0.6,
+   "drop_ratio": 1.16
+  },
+  {
+   "moment": "slotting ladder step 2 (boxes move, counter drops)",
+   "video_time_s": 19.567,
+   "track_time_s": 174.966,
+   "track_time": "2:54.966",
+   "beat_number": 329,
+   "downbeat": false,
+   "offset_from_beat_ms": -31,
+   "hit_strength": 0.64,
+   "drop_ratio": 1.47
+  },
+  {
+   "moment": "slotting ladder step 3 (boxes move, counter drops)",
+   "video_time_s": 22.767,
+   "track_time_s": 178.166,
+   "track_time": "2:58.166",
+   "beat_number": 335,
+   "downbeat": true,
+   "offset_from_beat_ms": -24,
+   "hit_strength": 0.65,
+   "drop_ratio": 0.86
+  },
+  {
+   "moment": "slotting ladder step 4 (boxes move, counter drops)",
+   "video_time_s": 26.0,
+   "track_time_s": 181.4,
+   "track_time": "3:01.400",
+   "beat_number": 341,
+   "downbeat": false,
+   "offset_from_beat_ms": 28,
+   "hit_strength": 0.56,
+   "drop_ratio": 1.4
+  },
+  {
+   "moment": "\"WMS picks: ...\" order A",
+   "video_time_s": 45.067,
+   "track_time_s": 200.466,
+   "track_time": "3:20.466",
+   "beat_number": 377,
+   "downbeat": false,
+   "offset_from_beat_ms": -26,
+   "hit_strength": 0.53,
+   "drop_ratio": 0.8
+  },
+  {
+   "moment": "\"WMS picks: ...\" order B",
+   "video_time_s": 47.217,
+   "track_time_s": 202.616,
+   "track_time": "3:22.616",
+   "beat_number": 381,
+   "downbeat": false,
+   "offset_from_beat_ms": 10,
+   "hit_strength": 0.68,
+   "drop_ratio": 1.24
+  },
+  {
+   "moment": "\"WMS picks: ...\" order C",
+   "video_time_s": 50.367,
+   "track_time_s": 205.766,
+   "track_time": "3:25.766",
+   "beat_number": 387,
+   "downbeat": true,
+   "offset_from_beat_ms": -32,
+   "hit_strength": 0.43,
+   "drop_ratio": 1.05
+  },
+  {
+   "moment": "\"WMS picks: ...\" order D",
+   "video_time_s": 52.55,
+   "track_time_s": 207.95,
+   "track_time": "3:27.950",
+   "beat_number": 391,
+   "downbeat": true,
+   "offset_from_beat_ms": 38,
+   "hit_strength": 0.52,
+   "drop_ratio": 0.25
+  },
+  {
+   "moment": "jam clearing",
+   "video_time_s": 63.533,
+   "track_time_s": 218.933,
+   "track_time": "3:38.933",
+   "beat_number": 412,
+   "downbeat": false,
+   "offset_from_beat_ms": -8,
+   "hit_strength": 0.47,
+   "drop_ratio": 0.19
+  },
+  {
+   "moment": "\"They walk less.\"",
+   "video_time_s": 86.8,
+   "track_time_s": 242.2,
+   "track_time": "4:02.200",
+   "beat_number": 456,
+   "downbeat": false,
+   "offset_from_beat_ms": -240,
+   "hit_strength": 0.73,
+   "drop_ratio": 20.0
+  }
+ ],
+ "hit_strength_scale": "0.5 x (all-band onset / its 99th percentile) + 0.5 x (kick-band onset / its 99th percentile)"
+}

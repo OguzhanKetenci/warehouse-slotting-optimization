@@ -1,0 +1,210 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Warehouse Slotting Film</title>
+<meta name="viewport" content="width=1080">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;500&display=block">
+<style>
+/* Render page for the final video: the storyboard (linkedin_video_storyboard.html) at 1080x1920, frame-stepped by render.js. */
+html,body{margin:0;background:#0d0e10}
+canvas{display:block;width:1080px;height:1920px}
+</style>
+<canvas id="film" width="1080" height="1920"></canvas>
+<script>
+// ---------------------------------------------------------------------------------------------
+// Inputs injected by render.js: window.VDATA (video_data.json: real results) and window.SYNC
+// (music_sync.json: cut shifts). Scene drawing is the storyboard's, drawn in its 720x1280 space and
+// scaled 1.5x to 1080x1920. Changes vs. the storyboard are marked "VIDEO:".
+// ---------------------------------------------------------------------------------------------
+const VD=window.VDATA,SY=(window.SYNC&&window.SYNC.cut_shift_s)||{};
+const sh=k=>SY[k]||0;
+const W=720,H=900,RT=180,RB=670,BAY=(RB-RT)/12,FRONT=700,BACK=152,DOCK=[60,765];
+const ax=j=>85+j*60, rackX=i=>40+i*60;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(a,r){for(let i=a.length-1;i>0;i--){const k=Math.floor(r()*(i+1));[a[i],a[k]]=[a[k],a[i]]}return a}
+const slots=[];{const r=rng(11);for(let j=0;j<10;j++)for(let k=0;k<12;k++)for(let s=0;s<2;s++){const y=RT+(k+.5)*BAY;const v=(r()-.5)*34;slots.push({j,k,s,x:ax(j),y,bx:s?rackX(j+1)+1.5:rackX(j)+16.5,by:RT+k*BAY+3,bh:BAY-6-r()*5,bw:11+r()*1.5,score:(ax(j)-DOCK[0])+(FRONT-y),base:[176+v,132+v*.8,86+v*.6]})}}
+const N=slots.length,idx=[...Array(N).keys()];
+// VIDEO: A and B zone sizes from the real year-over-year ABC shares (storyboard: 48 and 72 of 240 slots)
+const NA=Math.round(N*VD.abc_shares.A),NAB=Math.round(N*(VD.abc_shares.A+VD.abc_shares.B));
+const P={};
+P.random=shuffle(idx.slice(),rng(7));
+P.full=idx.slice().sort((a,b)=>slots[a].score-slots[b].score);
+P.aisle=idx.slice().sort((a,b)=>slots[a].j-slots[b].j||slots[b].y-slots[a].y||slots[a].s-slots[b].s);
+{const r=rng(3),f=P.full;P.abc=[...shuffle(f.slice(0,NA),r),...shuffle(f.slice(NA,NAB),r),...shuffle(f.slice(NAB),r)]}
+const HEAT={};for(const p in P){const h=new Float32Array(N);P[p].forEach((si,rank)=>{h[si]=p==='abc'?(rank<NA?1:rank<NAB?.45:.06):Math.pow(1-rank/(N-1),2.6)});HEAT[p]=h}
+const ORDER=[0,2,5,59,74,108];
+const PK={};for(const p in P)PK[p]=ORDER.map(r=>slots[P[p][r]]);
+function groupA(pk){const m=new Map();pk.forEach(s=>{if(!m.has(s.j))m.set(s.j,[]);m.get(s.j).push(s.y)});return[m,[...m.keys()].sort((a,b)=>a-b)]}
+function rS(pk){const[A,ks]=groupA(pk);const p=[DOCK,[DOCK[0],FRONT]];let side='F';ks.forEach((j,i)=>{const x=ax(j),ys=A.get(j),last=i===ks.length-1;if(side==='F'){p.push([x,FRONT]);if(last)p.push([x,Math.min(...ys)],[x,FRONT]);else{p.push([x,BACK]);side='B'}}else{p.push([x,BACK],[x,FRONT]);side='F'}});p.push([DOCK[0],FRONT],DOCK);return p}
+function rR(pk){const[A,ks]=groupA(pk);const p=[DOCK,[DOCK[0],FRONT]];ks.forEach(j=>{const x=ax(j);p.push([x,FRONT],[x,Math.min(...A.get(j))],[x,FRONT])});p.push([DOCK[0],FRONT],DOCK);return p}
+function rG(pk){const[A,ks]=groupA(pk);if(ks.length<2)return rR(pk);const p=[DOCK,[DOCK[0],FRONT]];const f=ks[0],l=ks[ks.length-1];p.push([ax(f),FRONT],[ax(f),BACK]);const low=[];
+ ks.slice(1,-1).forEach(j=>{const x=ax(j),ys=A.get(j).slice().sort((a,b)=>a-b),arr=[BACK,...ys,FRONT];let gi=0,g=-1;for(let i=0;i<arr.length-1;i++)if(arr[i+1]-arr[i]>g){g=arr[i+1]-arr[i];gi=i}
+ const up=arr.slice(1,gi+1),dn=arr.slice(gi+1,-1);if(up.length)p.push([x,BACK],[x,Math.max(...up)],[x,BACK]);if(dn.length)low.push([x,Math.min(...dn)])});
+ p.push([ax(l),BACK],[ax(l),FRONT]);low.reverse().forEach(([x,y])=>p.push([x,FRONT],[x,y],[x,FRONT]));p.push([DOCK[0],FRONT],DOCK);return p}
+function rC(pk){const[A,ks]=groupA(pk);const p=[DOCK,[DOCK[0],FRONT]];let side='F';const mid=(FRONT+BACK)/2;ks.forEach((j,i)=>{const x=ax(j),ys=A.get(j),last=i===ks.length-1;
+ if(side==='F'){p.push([x,FRONT]);const mn=Math.min(...ys);if(!last&&mn<mid){p.push([x,BACK]);side='B'}else p.push([x,mn],[x,FRONT])}
+ else{p.push([x,BACK]);const mx=Math.max(...ys);if(last||mx>mid){p.push([x,FRONT]);side='F'}else p.push([x,mx],[x,BACK])}});p.push([DOCK[0],FRONT],DOCK);return p}
+function dd(a,b){if(!a.d&&!b.d&&a.x===b.x)return[Math.abs(a.y-b.y),0];const dx=Math.abs(a.x-b.x),fr=(FRONT-a.y)+(FRONT-b.y)+dx,bk=(a.d||b.d)?1e9:(a.y-BACK)+(b.y-BACK)+dx;return fr<=bk?[fr,1]:[bk,2]}
+function rO(pk){const dock={x:DOCK[0],y:FRONT,d:1};const n=pk.length;let best=1e9,bo=null;const used=Array(n).fill(0),ord=[];
+ (function dfs(prev,cost){if(cost>=best)return;if(ord.length===n){const c=cost+dd(prev,dock)[0];if(c<best){best=c;bo=ord.slice()}return}for(let i=0;i<n;i++)if(!used[i]){used[i]=1;ord.push(i);dfs(pk[i],cost+dd(prev,pk[i])[0]);ord.pop();used[i]=0}})(dock,0);
+ const p=[DOCK,[DOCK[0],FRONT]];let prev=dock;[...bo.map(i=>pk[i]),dock].forEach(b=>{const m=dd(prev,b)[1];if(m===1)p.push([prev.x,FRONT],[b.x,FRONT],[b.x,b.y]);else if(m===2)p.push([prev.x,BACK],[b.x,BACK],[b.x,b.y]);else p.push([b.x,b.y]);prev=b});p.push(DOCK);return p}
+function plen(p){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return L}
+const RF={s:rS,r:rR,g:rG,c:rC,o:rO};const R={};for(const p in P)for(const k in RF)R[p+'_'+k]=RF[k](PK[p]);
+const C=document.getElementById('film'),X=C.getContext('2d');const VW=720,VH=1280,OY=250,SC=1080/720;
+const COL={bg:'#0f1012',band:'#121316',floor:'#25272a',seam:'#2d2f33',steel:'#3e434a',beam:'#d9772b',safety:'#f2c230',ink:'#f4f1ea',mute:'#a19e95',good:'#4fd68f',bad:'#ff5b4f',route:'#8fb4ff'};
+const FD='"Barlow Condensed", "Arial Narrow", sans-serif',FB='"IBM Plex Sans", system-ui, sans-serif',FM='"IBM Plex Mono", ui-monospace, monospace';
+const cl=v=>Math.max(0,Math.min(1,v)),ease=v=>{v=cl(v);return v*v*(3-2*v)},eo=v=>{v=cl(v);return 1-Math.pow(1-v,3)},fi=(t,a,l=.6)=>ease((t-a)/l),fo=(t,a,l=.5)=>1-ease((t-a)/l),lerp=(a,b,u)=>a+(b-a)*u;
+// VIDEO: text sizes are in the 720x1280 space (x1.5 on output): 20 = 30 px minimum, 27 = 40.5 px for captions.
+const MIN=20,CAP=27;
+function T(s,x,y,size,col,a,o={}){if(a<=0)return;X.globalAlpha=a;X.fillStyle=col;X.font=(o.w||600)+' '+size+'px '+(o.f||FD);X.textAlign=o.al||'left';X.textBaseline='alphabetic';X.letterSpacing=(o.ls||0)+'px';X.fillText(s,x,y,o.mw||4000);X.letterSpacing='0px';X.globalAlpha=1}
+// VIDEO: wrapped text (word wrap to mw), returns the number of lines
+function TW(s,x,y,size,col,a,o={},lh=size*1.3){X.font=(o.w||600)+' '+size+'px '+(o.f||FD);const mw=o.mw||640,words=s.split(' '),lines=[];let cur='';words.forEach(w=>{const tr=cur?cur+' '+w:w;if(X.measureText(tr).width>mw&&cur){lines.push(cur);cur=w}else cur=tr});lines.push(cur);lines.forEach((l,i)=>T(l,x,y+i*lh,size,col,a,o));return lines.length}
+function rr(x,y,w,h,r){X.beginPath();X.roundRect(x,y,w,h,r)}
+const heatOf=r=>Math.pow(1-r/(N-1),2.6);
+function heatCol(h,base,mix){const hc=[lerp(52,255,h),lerp(58,196,h),lerp(70,40,h)];return base.map((v,q)=>lerp(v,hc[q],mix))}
+// VIDEO: the small decorative "DOCK n" labels are removed (text size rule); the dock stripes stay.
+function floor(){X.fillStyle=COL.floor;X.fillRect(20,112,680,688);X.strokeStyle=COL.seam;X.lineWidth=1;for(let x=20;x<700;x+=60){X.beginPath();X.moveTo(x+.5,112);X.lineTo(x+.5,790);X.stroke()}for(let y=112;y<790;y+=60){X.beginPath();X.moveTo(20,y+.5);X.lineTo(700,y+.5);X.stroke()}
+ X.strokeStyle=COL.safety;X.globalAlpha=.5;X.lineWidth=2;[RT-9,RB+9,FRONT+24,BACK-24].forEach(y=>{X.beginPath();X.moveTo(30,y);X.lineTo(690,y);X.stroke()});X.globalAlpha=1;
+ X.fillStyle='#17181a';X.fillRect(20,790,680,10);for(let d=0;d<4;d++){const x=25+d*170;for(let i=0;i<8;i++){X.fillStyle=i%2?COL.safety:'#1b1b1b';X.fillRect(x+i*10,786,10,5)}}}
+function frames(){for(let i=0;i<11;i++){const x=rackX(i);X.fillStyle=COL.steel;X.fillRect(x,RT-4,30,RB-RT+8);X.fillStyle='#2a2d32';X.fillRect(x+14,RT-4,2,RB-RT+8);X.fillStyle=COL.beam;X.fillRect(x,RT-4,1.5,RB-RT+8);X.fillRect(x+28.5,RT-4,1.5,RB-RT+8)}}
+function box(x,y,w,h,c,lift){if(lift){X.fillStyle='rgba(0,0,0,.35)';X.fillRect(x+3,y+4,w,h)}X.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;X.fillRect(x,y,w,h);X.fillStyle='rgba(255,255,255,.16)';X.fillRect(x,y,w,1.5);X.fillStyle='rgba(0,0,0,.2)';X.fillRect(x+w/2-.5,y+2,1,h-4)}
+function items(pA,pB,u,mix){const mv=[];for(let r=0;r<N;r++){const a=slots[P[pA][r]],b=slots[P[pB][r]];const uu=pA===pB?1:eo((u*1.7)-(r/(N-1))*.7);const x=lerp(a.bx,b.bx,uu),y=lerp(a.by,b.by,uu);const c=heatCol(heatOf(r),a.base,mix);if(uu>0&&uu<1)mv.push([x,y,a.bw,a.bh,c]);else box(x,y,a.bw,a.bh,c)}mv.forEach(m=>box(m[0]-1,m[1]-1,m[2]+2,m[3]+2,m[4],1))}
+function wh(fn){X.save();X.translate(0,OY);floor();frames();fn();X.restore()}
+function shadeW(a){if(a<=0)return;X.fillStyle=`rgba(12,13,15,${a})`;X.fillRect(20,112,680,688)}
+function worker(x,y,a,ph,o={}){X.save();X.globalAlpha=o.alpha??1;X.translate(x,y);X.rotate(a);const sc=o.sc||1;X.scale(sc,sc);
+ if(!o.nocart){X.fillStyle='#4a4f57';X.fillRect(-21,-6.5,11,13);X.fillStyle='#b98a55';X.fillRect(-20,-5.5,9,5);X.fillStyle='#a8784a';X.fillRect(-20,.5,9,5);X.fillStyle='#4a4f57';X.fillRect(-11,-1,3,2)}
+ const s=Math.sin(ph)*2.4;X.fillStyle='#2b2f36';X.beginPath();X.ellipse(1+s,-3,3,1.8,0,0,7);X.fill();X.beginPath();X.ellipse(1-s,3,3,1.8,0,0,7);X.fill();
+ X.fillStyle=o.vest||'#ff7a1a';X.beginPath();X.ellipse(-1,0,4.6,7.6,0,0,7);X.fill();X.fillStyle='rgba(235,240,242,.9)';X.fillRect(-2.2,-7,1.4,14);
+ X.fillStyle=o.vest||'#ff7a1a';X.beginPath();X.ellipse(2.5,-6.4,3.2,1.7,.4,0,7);X.fill();X.beginPath();X.ellipse(2.5,6.4,3.2,1.7,-.4,0,7);X.fill();
+ X.fillStyle='#e7c39a';X.beginPath();X.arc(5.4,-6.6,1.3,0,7);X.arc(5.4,6.6,1.3,0,7);X.fill();
+ X.fillStyle=COL.safety;X.beginPath();X.arc(.6,0,4.3,0,7);X.fill();X.fillStyle='rgba(0,0,0,.25)';X.fillRect(3.6,-2.4,1.8,4.8);X.fillStyle='rgba(255,255,255,.35)';X.beginPath();X.arc(-.3,-1.2,1.3,0,7);X.fill();X.restore()}
+function posAt(p,f){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);L*=cl(f);let acc=0,ang=-Math.PI/2;for(let i=1;i<p.length;i++){const dx=p[i][0]-p[i-1][0],dy=p[i][1]-p[i-1][1],s=Math.hypot(dx,dy);if(s===0)continue;ang=Math.atan2(dy,dx);if(acc+s>=L){const r=(L-acc)/s;return[p[i-1][0]+dx*r,p[i-1][1]+dy*r,ang,i]}acc+=s}const n=p.length;return[p[n-1][0],p[n-1][1],ang,n]}
+function trail(p,f,col,wd=3,ga=1){if(f<=0)return null;const q=posAt(p,f);X.save();X.lineJoin='round';X.lineCap='round';[[wd*3,.18],[wd,.95]].forEach(([w,a])=>{X.globalAlpha=a*ga;X.strokeStyle=col;X.lineWidth=w;X.beginPath();X.moveTo(p[0][0],p[0][1]);for(let i=1;i<q[3];i++)X.lineTo(p[i][0],p[i][1]);X.lineTo(q[0],q[1]);X.stroke()});X.restore();return q}
+const loops=[[0,3,0],[2,6,.3],[4,8,.55],[1,9,.75],[5,7,.15]].map(([a,b,o])=>({p:[[ax(a),FRONT],[ax(a),BACK],[ax(b),BACK],[ax(b),FRONT],[ax(a),FRONT]],o}));
+function ambient(t){loops.forEach(l=>{const q=posAt(l.p,(t*.03+l.o)%1);worker(q[0],q[1],q[2],t*7)})}
+function head(tag,line1,line2,a,col2){X.fillStyle=COL.bg;X.fillRect(0,0,VW,OY+2);T(tag,40,92,MIN,COL.safety,a,{f:FM,w:500,ls:3});T(line1,40,160,60,COL.ink,a,{w:700,mw:640});if(line2)T(line2,40,222,60,col2||COL.ink,a,{w:700,mw:640})}
+function foot(){X.fillStyle=COL.bg;X.fillRect(0,OY+800,VW,VH-OY-800)}
+// VIDEO: legend in two rows (explanation at caption size, swatch labels at 24)
+function legend(a){if(a<=0)return;const y=OY+122;X.globalAlpha=a;rr(30,y,660,84,6);X.fillStyle='rgba(15,16,18,.92)';X.fill();X.globalAlpha=1;
+ T('Box colour = how often it is picked',48,y+34,CAP,COL.ink,a,{f:FB,w:500});
+ box(48,y+48,16,22,heatCol(1,[176,132,86],1));T('Fast mover',74,y+68,24,COL.ink,a,{f:FB,w:500});box(238,y+48,16,22,heatCol(0,[176,132,86],1));T('Slow mover',264,y+68,24,COL.ink,a,{f:FB,w:500})}
+// VIDEO: decision banner in two rows so the text can be caption size without squeezing
+function decision(text,a,y=1205){if(a<=0)return;X.save();X.globalAlpha=a;const x=30,w=660;rr(x,y-44,w,88,8);X.fillStyle=COL.safety;X.fill();X.restore();
+ T('MY DECISION',x+20,y-14,MIN,'#1a1500',a,{f:FM,w:500,ls:2});T(text,x+20,y+28,CAP,'#1a1500',a,{f:FB,w:500,mw:w-40})}
+
+const W2=1.6;
+const RL=[['s','S-shape','Walk through every aisle with a pick'],['r','Return','Go in, pick, turn back'],['g','Largest gap','Skip the longest empty stretch'],['c','Combined','Cross or turn back, decided per aisle'],['o','Optimal','A solver finds the shortest tour']];
+// VIDEO: the new-SKU block moves to the rank where the B zone starts (the real rule), storyboard: ranks 112-117
+const NEWS=P.aisle.slice(-6).map(i=>slots[i]),MIDS=P.aisle.slice(NA,NA+6).map(i=>slots[i]);
+// VIDEO: ladder values from the real next-year results (year-over-year, S-shape)
+const LAD=VD.ladder,pct=v=>'↓ '+Math.round(v)+'%';
+const STEPS=[['random','Random',LAD[0].m,'',null],['abc','ABC zones',LAD[1].m,pct(LAD[1].saving_pct),null],['full','Full velocity',LAD[2].m,pct(LAD[2].saving_pct),null],['aisle','Aisle-based',LAD[3].m,pct(LAD[3].saving_pct),'new'],['aisle','+ New-SKU rule',LAD[4].m,pct(LAD[4].saving_pct),'rule']];
+function walkOn(p,f,col,t){const q=trail(p,f,col,3.5);if(q)worker(q[0],q[1],q[2],t*8,{sc:W2});else worker(DOCK[0],DOCK[1],-Math.PI/2,0,{sc:W2})}
+function stopSign(x,y,a){X.save();X.globalAlpha=a;X.fillStyle=COL.bad;X.beginPath();for(let k=0;k<8;k++){const an=Math.PI/8+k*Math.PI/4;X.lineTo(x+Math.cos(an)*9,y+Math.sin(an)*9)}X.closePath();X.fill();X.fillStyle='#fff';X.fillRect(x-5,y-1.5,10,3);X.restore()}
+const crowd=[...Array(23).keys()].map(k=>({j:[0,0,0,1,1,1,2,2,2,3,3,4,4,5,5,6,6,7,7,8,9,0,1][k],o:k*1.37,dx:(k%2?5:-5)}));
+const ZA=new Set(P.full.slice(0,NA)),ZB=new Set(P.full.slice(NA,NAB));
+function cen(set){let x=0,y=0,n=0;set.forEach(i=>{x+=slots[i].x;y+=slots[i].y;n++});return[x/n,y/n]}
+const CA=cen(ZA),CB=cen(ZB),CC=cen(new Set(idx.filter(i=>!ZA.has(i)&&!ZB.has(i))));
+// VIDEO: info cards sit in the band above the floor, in two rows (name, then caption-size line)
+function infoCard(name,line,a,col){if(a<=0)return;X.globalAlpha=a;rr(30,4,660,102,8);X.fillStyle='rgba(15,16,18,.94)';X.fill();X.globalAlpha=1;T(name,48,44,32,col||COL.ink,a,{w:700});T(line,48,88,CAP,COL.ink,a,{f:FB,w:500,mw:624})}
+function overlay(kind,a){if(a<=0||!kind)return;
+ if(kind==='abc'){X.save();X.globalAlpha=a;slots.forEach((s,i)=>{const z=ZA.has(i)?'A':ZB.has(i)?'B':null;if(!z)return;X.fillStyle=z==='A'?'rgba(79,214,143,.45)':'rgba(143,180,255,.35)';X.fillRect(s.bx-3,s.by-2,s.bw+6,s.bh+4)});X.restore();
+  [['A',CA,COL.good],['B',CB,'#8fb4ff'],['C',CC,COL.mute]].forEach(([l,c,col])=>{X.globalAlpha=a;X.fillStyle='rgba(15,16,18,.85)';X.beginPath();X.arc(c[0],c[1],26,0,7);X.fill();X.globalAlpha=1;T(l,c[0],c[1]+13,38,col,a,{al:'center',w:700})});return}
+ if(kind==='full'){P.full.slice(0,9).forEach((si,r)=>{const s=slots[si];X.globalAlpha=a;X.fillStyle=COL.good;X.beginPath();X.arc(s.bx+s.bw/2,s.by+s.bh/2,14,0,7);X.fill();X.globalAlpha=1;T(String(r+1),s.bx+s.bw/2,s.by+s.bh/2+7,MIN,'#06210f',a,{al:'center',w:700})});return}
+ if(kind==='aisle'){for(let j=0;j<10;j++){const on=j<3;X.globalAlpha=a;X.fillStyle=on?COL.good:'#2b2e33';rr(ax(j)-17,RB+10,34,28,4);X.fill();X.globalAlpha=1;T(String(j+1),ax(j),RB+31,MIN,on?'#06210f':COL.mute,a,{al:'center',w:700})}X.globalAlpha=a*.25;X.fillStyle=COL.good;X.fillRect(ax(0)-15,RT,30,RB-RT);X.globalAlpha=1}}
+// VIDEO: four REAL orders from next year on the recommended layout (video_data.json). Distances are the real
+// rule lengths; the drawing keeps each order's aisle count and sequence and each pick's depth, with the gaps
+// between aisles compressed onto the 10-aisle floor.
+function toySlots(picks){const as=[...new Set(picks.map(p=>p.aisle))].sort((a,b)=>a-b),n=as.length;const st=Math.max(0,Math.min(10-n,Math.round(as[0]*9/39)));
+ return picks.map(p=>{const j=st+as.indexOf(p.aisle),k=11-Math.min(11,Math.floor(p.y_m/50*12));return slots[(j*12+k)*2+p.side]})}
+const ORD2=VD.example_orders.map(o=>{const pk=toySlots(o.picks);return{w:o.winner,pk,lines:o.lines,L:o.m,path:RF[o.winner](pk)}});
+const RN={s:'S-shape',r:'Return',g:'Largest gap',c:'Combined'};
+function hl2(pk,t){pk.forEach(s=>{X.globalAlpha=.55+.45*Math.sin(t*4);X.strokeStyle=COL.safety;X.lineWidth=2;X.strokeRect(s.bx-3,s.by-3,s.bw+6,s.bh+6);X.globalAlpha=1})}
+// VIDEO: route bars show the real next-year average per order on the recommended layout
+const RM=VD.routes_recommended_m,RVAL={s:RM['S-shape'],r:RM['Return'],g:RM['Largest gap'],c:RM['Combined'],o:RM['Optimal']},RMAX=Math.max(...Object.values(RVAL));
+function RF0(t){const rd=2.7,k=Math.min(4,Math.floor((t-.4)/rd)),lt=t-.4-k*rd,fin=t>14,r=RL[Math.max(0,k)];
+ wh(()=>{items('aisle','aisle',1,1);shadeW(fin?.82:.25);
+  if(!fin){for(let i=0;i<k;i++)trail(R['aisle_'+RL[i][0]],1,'#9aa6b8',2,.15);walkOn(R['aisle_'+r[0]],eo((lt-.2)/2.1),r[0]==='o'?COL.safety:COL.good,t)}
+  if(!fin){X.globalAlpha=fi(lt,.1);rr(30,4,660,102,8);X.fillStyle='rgba(15,16,18,.94)';X.fill();X.globalAlpha=1;T(r[1],48,44,32,r[0]==='o'?COL.safety:COL.good,fi(lt,.1),{w:700});T(r[2],48,88,CAP,COL.ink,fi(lt,.1),{f:FB,w:500,mw:624})}});
+ head('FIX 2 · ROUTING',fin?'Not just where products live.':'Then we changed',fin?'How every order is walked.':'how pickers walk.',1,COL.good);
+ foot();RL.forEach((x,i)=>{const y=1046+i*38,on=i<=k||fin,act=i===k&&!fin;const v=RVAL[x[0]],u=i<k||fin?1:act?eo((lt-.2)/2.1):0;
+  T(x[1],40,y+24,act?24:MIN,act?COL.ink:COL.mute,on?1:.35,{f:FB,w:500});X.fillStyle=x[0]==='o'?COL.safety:act?COL.good:'#4b5160';X.globalAlpha=on?1:.35;X.fillRect(210,y+10,330*v/RMAX*u,16);X.globalAlpha=1;T(on&&u>0?Math.round(v*u)+' m':'',560,y+24,MIN,COL.ink,on?1:.35,{f:FM,w:500})});
+ T('Average per order, next year’s orders',40,1266,CAP,COL.mute,1,{f:FB,w:400});
+ if(!fin){if(r[0]==='c')decision('Built after spotting Return’s wasted walk-backs',fi(lt,.3),1000)}
+ else{T('↓ '+Math.round(VD.optimal_vs_sshape_pct)+'% more walking',360,640,62,COL.good,fi(t,14.2),{al:'center',w:700});TW('on top of slotting, on next year’s '+VD.next_year_orders.toLocaleString('en-US')+' orders',360,690,CAP,COL.ink,fi(t,14.6),{f:FB,w:500,al:'center',mw:640});TW('No solver? Largest gap lands within '+Math.round(VD.largest_gap_vs_optimal_pct)+'% of the best.',360,770,CAP,COL.mute,fi(t,15.2),{f:FB,w:400,al:'center',mw:420})}}
+// VIDEO: sub-scene cut times (music sync, each shifted <= 0.5 s)
+const STEP_T=[0.3,...[1,2,3,4].map(k=>0.3+k*3.3+sh('step'+k))];
+const ORD_T=[0,1,2,3].map(i=>14+i*2.75+sh('order'+i));
+const HOURS=[...Array(15).keys()].map(i=>6+i),OBH=VD.orders_by_hour.per_day,ST=VD.staffing;
+const S=[
+{name:'Hook',dur:4,f(t){wh(()=>{items('random','random',1,0);ambient(t);shadeW(.5)});head('WAREHOUSE OPERATIONS','Order pickers spend','half their shift walking.',fi(t,.1),COL.safety);
+ foot();TW('19,773 real orders · 3,791 products · 12 months',360,1120,CAP,COL.ink,fi(t,1.6),{f:FB,w:500,al:'center',mw:620});T('Walking share: Tompkins et al., Facilities Planning',360,1236,MIN,COL.mute,fi(t,2.2),{f:FM,w:500,al:'center',mw:680})}},
+{name:'The problem',dur:4.5,f(t){wh(()=>{items('random','random',1,fi(t,.2,.8));walkOn(R.random_s,eo((t-.6)/2.6),COL.bad,t)});
+ head('THE PROBLEM · RANDOM STORAGE','Products go to any','free slot. Even fast movers.',fi(t,0),COL.bad);X.save();X.translate(0,OY);legend(fi(t,.3));X.restore();
+ foot();T(Math.round(LAD[0].m)+' m',40,1140,96,COL.bad,fi(t,1.6),{w:700});TW('walked per order on average, with random storage',40,1192,CAP,COL.ink,fi(t,2),{f:FB,w:500,mw:640},36)}},
+{name:'Slotting types',dur:4,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);T('FIX 1 · SLOTTING',360,420,MIN,COL.safety,fi(t,0),{f:FM,w:500,al:'center',ls:4});T('Same products.',360,520,72,COL.ink,fi(t,.2),{al:'center',w:700});T('Four ways to place them.',360,600,64,COL.good,fi(t,.6),{al:'center',w:700,mw:660});
+ // VIDEO: the four layout chips in a 2x2 grid so the names fit at 30 px
+ ['Random','ABC zones','Full velocity','Aisle-based'].forEach((n,i)=>{const a=fi(t,1.2+i*.45),x=50+(i%2)*315,y=680+Math.floor(i/2)*84;X.globalAlpha=a;rr(x,y,305,68,8);X.fillStyle=i?'#1f2a22':'#2a1b1b';X.fill();X.strokeStyle=i?COL.good:COL.bad;X.lineWidth=1.5;X.stroke();X.globalAlpha=1;T(n,x+152,y+45,30,COL.ink,a,{f:FB,w:500,al:'center',mw:280})});
+ TW('Slotted on last year. Tested on next year’s orders.',360,900,CAP,COL.mute,fi(t,3),{f:FB,w:400,al:'center',mw:640})}},
+{name:'Fix 1: slotting',dur:17,f(t){let ks=0;for(let k=1;k<5;k++)if(t>=STEP_T[k])ks=k;const lt=t-STEP_T[ks],sd=(STEP_T[ks+1]??STEP_T[ks]+3.3)-STEP_T[ks];const cur=STEPS[ks],prev=STEPS[Math.max(0,ks-1)];
+ const u=ks===0?1:eo(lt/1.4);const kind=['random','abc','full','aisle',null][ks];
+ wh(()=>{items(prev[0],cur[0],cur[0]===prev[0]?1:u,1);overlay(kind,fi(lt,1.3)*fo(lt,sd-.3,.3));
+  if(ks>=3){const m=ks===4?eo((lt-.2)/1.4):0;NEWS.forEach((s0,i)=>{const d=MIDS[i],x=lerp(s0.bx,d.bx,m),y=lerp(s0.by,d.by,m),c=m>.98?COL.good:COL.bad;X.fillStyle=c;X.fillRect(x-1,y-1,s0.bw+2,s0.bh+2);X.globalAlpha=.5+.5*Math.sin(t*5);X.strokeStyle=c;X.lineWidth=2;X.strokeRect(x-4,y-4,s0.bw+8,s0.bh+8);X.globalAlpha=1})}
+  walkOn(R[cur[0]+'_s'],eo((lt-.4)/2.2),ks===0?COL.bad:COL.good,t);
+  legend(1);const IC=[['Random','Any free slot. No logic.',COL.bad],['ABC zones','A = top '+Math.round(100*VD.abc_shares.A)+'% of SKUs, nearest the dock',COL.good],['Full velocity','Rank every SKU; #1 gets the closest slot',COL.good],['Aisle-based','Fill aisle 1 first. New SKUs still land at the back',COL.good],['New-SKU rule','New products start mid-floor until ranked',COL.good]][ks];infoCard(IC[0],IC[1],fi(lt,.2),IC[2])});
+ head('FIX 1 · SLOTTING','We kept finding','a better layout.',1,COL.good);
+ // VIDEO: ladder chips 56 px tall, names and percentages at 30 px
+ foot();STEPS.forEach((st,i)=>{const x=24+i*136,on=i<=ks,act=i===ks;X.globalAlpha=on?1:.35;rr(x,1054,128,58,6);X.fillStyle=act?(i===0?COL.bad:COL.good):'#1b1d21';X.fill();X.globalAlpha=1;T(st[1],x+64,1078,MIN,act?'#08140c':COL.ink,on?1:.4,{f:FB,w:500,al:'center',mw:120});T(st[3]||'baseline',x+64,1104,MIN,act?'#08140c':COL.mute,on?1:.4,{f:FM,w:500,al:'center',mw:120})});
+ const pv=STEPS[Math.max(0,ks-1)][2],cv=STEPS[ks][2],v=ks===0?STEPS[0][2]:lerp(pv,cv,eo(lt/1.4));T(Math.round(v)+' m',40,1186,72,ks===0?COL.bad:COL.good,1,{w:700});T('avg walk per order',300,1148,MIN,COL.mute,1,{f:FB});
+ T(cur[3]?cur[3]+' walking vs random':'starting point',300,1184,CAP,COL.ink,1,{f:FB,w:500,mw:410});if(ks===3)TW('Same-year test said ↓ '+Math.round(VD.aisle_same_year_pct)+'%. That was knowing the future.',40,1228,CAP,COL.mute,fi(lt,1.2),{f:FB,mw:640},34);
+ decision(ks===4?'New SKUs go to the middle zone. Cost: zero.':'Rank by pick frequency, not revenue',ks===0?0:fi(t,3.6),1000)}},
+{name:'Fix 2: routing',dur:28,f(t){if(t>=ORD_T[0]&&t<25){let oi=0;for(let i=1;i<4;i++)if(t>=ORD_T[i])oi=i;const ot=t-ORD_T[oi],O=ORD2[oi];
+ wh(()=>{items('aisle','aisle',1,1);shadeW(.3);hl2(O.pk,t);walkOn(O.path,eo((ot-.2)/1.9),COL.safety,t);X.globalAlpha=fi(ot,.1);rr(30,30,660,64,8);X.fillStyle='rgba(15,16,18,.94)';X.fill();X.globalAlpha=1;T('ORDER '+'ABCD'[oi]+' · '+O.lines+' lines',48,72,24,COL.ink,1,{f:FM,w:500,ls:2});T('WMS picks: '+RN[O.w],672,74,32,COL.safety,fi(ot,1.2),{al:'right',w:700})});
+ head('FIX 2 · ROUTING','Every order is different.','The WMS adapts to each one.',1,COL.safety);foot();
+ const mx=Math.max(...Object.values(O.L));['s','r','g','c'].forEach((k,i)=>{const y=1046+i*44,win=k===O.w;T(RN[k],40,y+26,MIN,win?COL.ink:COL.mute,1,{f:FB,w:500});X.fillStyle=win&&ot>1.2?COL.safety:'#4b5160';X.fillRect(210,y+12,330*O.L[k]/mx,18);T(Math.round(O.L[k])+' m',560,y+27,MIN,win?COL.ink:COL.mute,1,{f:FM,w:500});if(win&&ot>1.2)T('✓ best',690,y+27,MIN,COL.safety,fi(ot,1.2),{al:'right',w:700})});
+ T('A real order from next year, metres per rule',40,1266,CAP,COL.mute,1,{f:FB,w:400});return}
+ RF0(t>=25?t-11:Math.min(t,13.99))}},
+{name:'Fix 3: congestion',dur:13,f(t){const crude=t<6,mid=t>=4.6&&t<7,ra=crude?1:fo(t,6,1);
+ wh(()=>{items('aisle','aisle',1,.55);
+  for(let j=0;j<5;j++){X.fillStyle=`rgba(255,91,79,${.22*ra})`;X.fillRect(ax(j)-15,RT,30,RB-RT)}
+  if(!crude){const sa=fi(t,6.5);X.strokeStyle=`rgba(242,239,233,${.45*sa})`;X.lineWidth=1.5;X.setLineDash([4,3]);for(let j=0;j<10;j++)for(let y=RT+50;y<RB;y+=50){X.beginPath();X.moveTo(ax(j)-14,y);X.lineTo(ax(j)+14,y);X.stroke()}X.setLineDash([]);T('5 m',ax(9)-46,RT+44,MIN,COL.ink,sa,{f:FM,w:500})}
+  crowd.forEach((c,k)=>{if(crude){if(k<5){const u=.5+.5*Math.sin(t*.5+k);worker(ax(k),lerp(RB-24,RT+30,u),Math.cos(t*.5+k)>0?-Math.PI/2:Math.PI/2,t*6,{sc:1.4})}else{const q=k-5,x=ax(q%5)+(Math.floor(q/5)%2?11:-11),y=Math.min(FRONT-4+Math.floor(q/5)*22,FRONT+60);worker(x,y,-Math.PI/2,0,{nocart:true,sc:1.4});stopSign(x+12,y-14,.65+.35*Math.sin(t*4+k))}}
+   else{const u=.5+.5*Math.sin(t*.45+c.o);worker(ax(c.j)+c.dx,lerp(RB-16,RT+22,u),Math.cos(t*.45+c.o)>0?-Math.PI/2:Math.PI/2,t*6,{sc:1.4,alpha:fi(t,6)})}});
+  if(mid){shadeW(.65*fi(t,4.6)*fo(t,6.6));T('Wait. Is one picker per',360,400,40,COL.ink,fi(t,4.8)*fo(t,6.6),{al:'center',w:700});T('50 m aisle realistic?',360,450,40,COL.safety,fi(t,5)*fo(t,6.6),{al:'center',w:700})}});
+ head('FIX 3 · CONGESTION',crude?'10× volume, 23 pickers.':'A realistic aisle model.',crude?'The first model jammed.':'The jam disappears.',1,crude?COL.bad:COL.good);
+ foot();if(crude){T(Math.round(VD.jam_wait_min)+' min',40,1130,84,COL.bad,1,{w:700});T('waiting per order,',290,1092,CAP,COL.ink,1,{f:FB,w:500,mw:420});T(Math.round(VD.jam_front5_pct)+'% in the 5 front aisles',290,1130,CAP,COL.mute,1,{f:FB,mw:420})}
+ else{T('↓ 8–9×',40,1130,84,COL.good,fi(t,7),{w:700});T('less waiting with 5 m segments.',250,1092,CAP,COL.ink,fi(t,7.2),{f:FB,w:500,mw:450});T('Fast movers up front still win.',250,1130,CAP,COL.mute,fi(t,7.4),{f:FB,mw:450})}
+ if(t>9)decision('Skip a busy aisle, come back later: ↓ '+Math.round(VD.skip_wait_reduction_pct)+'% waiting',fi(t,9),1000)}},
+// VIDEO: real orders-by-hour profile (average working day, today's volume), before and after the 18:00 cut-off.
+// Orders after 18:00 move to the first shift hour (08:00), where carried orders are picked first.
+{name:'Fix 4: staffing',dur:9,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FIX 4 · STAFFING','Stop the evening','rush with a cut-off.',fi(t,0),COL.good);
+ const base=HOURS.map(h=>h<18?(OBH[h]||0):0),late=HOURS.map(h=>h>=18?(OBH[h]||0):0);
+ const m=eo((t-3)/2.2),x0=70,y0=900,bw=36,top=Math.max(...base),sc=290/top;X.strokeStyle='#2c2e33';X.lineWidth=1;
+ for(let q=2;q<=top;q+=2){const y=y0-q*sc;X.beginPath();X.moveTo(x0-10,y+.5);X.lineTo(x0+600,y+.5);X.stroke();if(q%4===0)T(String(q),x0-16,y+7,MIN,COL.mute,1,{f:FM,w:500,al:'right'})}
+ HOURS.forEach((h,i)=>{const x=x0+i*40,bh=base[i]*sc;X.fillStyle='#4b5160';X.fillRect(x,y0-bh,bw,bh);const lh=late[i]*sc*(1-m);if(lh>0){X.fillStyle=COL.bad;X.fillRect(x,y0-bh-lh,bw,lh)}if(i%2===0)T(String(h).padStart(2,'0'),x+bw/2,y0+32,MIN,COL.mute,1,{f:FM,w:500,al:'center'})});
+ const i8=HOURS.indexOf(8);let stack=base[i8]*sc;HOURS.forEach((h,i)=>{if(!late[i]||m<=0)return;const mh=late[i]*sc*m,fx=x0+i*40,tx=x0+i8*40;X.fillStyle=COL.safety;X.fillRect(lerp(fx,tx,m),y0-stack-mh-lerp(140,0,m)*(m<1?1:0),bw,mh);stack+=mh});
+ T('ORDERS PER HOUR · AVERAGE DAY',x0-10,430,MIN,COL.mute,1,{f:FM,w:500,ls:2});X.fillStyle='#4b5160';X.fillRect(x0-10,458,18,18);T('daytime orders',x0+18,475,MIN,COL.mute,1,{f:FB});X.fillStyle=t<3?COL.bad:COL.safety;X.fillRect(x0-10,494,18,18);T(t<3?'after 18:00, same day':'moved to next morning',x0+18,511,MIN,COL.mute,1,{f:FB});
+ T('team needed: '+(t<5?ST.pickers_before:ST.pickers_after)+' pickers',40,990,CAP,COL.ink,1,{f:FB,w:500});
+ for(let i=0;i<6;i++){worker(110+i*90,1040,-Math.PI/2,0,{alpha:i>=4?lerp(1,.15,fi(t,5.2,.8)):1,sc:2.4})}
+ T('Same orders, fewer paid hours.',40,1120,30,COL.ink,fi(t,6.2),{f:FB,w:500});T('↓ '+Math.round(ST.cost_cut_pct)+'% labour cost per order',40,1172,44,COL.good,fi(t,6.8),{w:700});
+ T(ST.cost_before.toFixed(2)+' → '+ST.cost_after.toFixed(2)+' wage-hours per order',40,1222,CAP,COL.mute,fi(t,7.2),{f:FB,w:400})}},
+// VIDEO: rule cards widened to 600 px so the rule text is caption size
+{name:'Built for a WMS',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FROM ANALYSIS TO SYSTEM','Five rules a WMS','can run every day.',fi(t,0),COL.safety);
+ const bx=40,by=400,bw=640,bh=572;X.strokeStyle=COL.safety;X.lineWidth=2;rr(bx,by,bw,bh,14);X.fillStyle='#16171a';X.fill();X.stroke();T('WMS',360,by+56,40,COL.safety,1,{al:'center',w:700,ls:6});
+ const rules=[['SLOTTING','Frequency-ranked, re-tested on new data'],['NEW SKU','Mid-floor until it earns a rank'],['ROUTE','Optimal path, computed per order'],['CONGESTION','Busy aisle? Skip, come back'],['CUT-OFF','18:00, staff to the flattened load']];
+ rules.forEach((r,i)=>{const st=.5+i*.6,u=eo((t-st)/.7),tx=bx+20,ty=by+84+i*96,sx=i%2?760:-640,sy=ty+(i%2?-120:120),x=lerp(sx,tx,u),y=lerp(sy,ty,u);if(u<=0)return;rr(x,y,600,84,8);X.fillStyle=u>=1?'#1f2a22':'#1d1f23';X.fill();X.strokeStyle=u>=1?COL.good:'#3a3d42';X.lineWidth=1.5;X.stroke();T(r[0],x+20,y+30,MIN,COL.safety,1,{f:FM,w:500,ls:2});T(r[1],x+20,y+68,CAP,COL.ink,1,{f:FB,w:500,mw:520});if(u>=1)T('✓',x+580,y+52,30,COL.good,1,{al:'right',w:700})});
+ TW('Each rule was tested on orders the model never saw.',360,1040,CAP,COL.mute,fi(t,3.6),{f:FB,w:400,al:'center',mw:420})}},
+{name:'Close',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);
+ T('Great warehouses',360,420,78,COL.ink,fi(t,.2),{al:'center',w:700});T('don’t move faster.',360,500,78,COL.ink,fi(t,.7),{al:'center',w:700});T('They walk less.',360,610,92,COL.safety,fi(t,1.6,.8),{al:'center',w:700});
+ X.globalAlpha=fi(t,2.8);X.fillStyle=COL.safety;X.fillRect(330,700,60,4);X.globalAlpha=1;
+ T('Oğuzhan Ketenci',360,790,46,COL.ink,fi(t,3),{al:'center',w:700});TW('Industrial Engineer · warehouse & supply chain analytics',360,840,CAP,COL.mute,fi(t,3.4),{f:FB,w:400,al:'center',mw:400});
+ T('github.com/OguzhanKetenci/warehouse-slotting-optimization',360,950,MIN,COL.safety,fi(t,4),{f:FM,w:500,al:'center',mw:690})}}
+];
+// VIDEO: scene cuts shifted for the music (<= 0.5 s each): before "The problem", "Fix 3", "Close"
+S[0].dur+=sh('problem');S[1].dur-=sh('problem');S[4].dur+=sh('congestion');S[5].dur-=sh('congestion');S[7].dur+=sh('close');S[8].dur-=sh('close');
+const TOTAL=S.reduce((a,b)=>a+b.dur,0);
+// VIDEO: deterministic clock - render.js calls renderAt(seconds) for every frame
+window.renderAt=function(T0){let s=0,acc=0;while(s<S.length-1&&T0>=acc+S[s].dur){acc+=S[s].dur;s++}const t=Math.min(T0-acc,S[s].dur);
+ X.setTransform(1,0,0,1,0,0);X.fillStyle=COL.bg;X.fillRect(0,0,C.width,C.height);X.setTransform(SC,0,0,SC,0,0);X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);S[s].f(t);return s};
+window.VIDEO={total:TOTAL,scenes:S.map(s=>({name:s.name,dur:s.dur}))};
+</script>

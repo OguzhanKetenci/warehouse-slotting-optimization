@@ -1,0 +1,241 @@
+{
+ "ladder": [
+  {
+   "scenario": "Random (baseline)",
+   "m": 932.9940022155404,
+   "saving_pct": -0.0
+  },
+  {
+   "scenario": "Class-based ABC",
+   "m": 815.8220393522182,
+   "saving_pct": 12.558704834659071
+  },
+  {
+   "scenario": "Full velocity",
+   "m": 759.81415835839,
+   "saving_pct": 18.56173174167332
+  },
+  {
+   "scenario": "Aisle-based velocity",
+   "m": 655.5900195178561,
+   "saving_pct": 29.732665166008033
+  },
+  {
+   "scenario": "Aisle-based velocity + new-product rule",
+   "m": 630.4326106451442,
+   "saving_pct": 32.42908216472095
+  }
+ ],
+ "routes_recommended_m": {
+  "Combined": 535.5477659967295,
+  "Largest gap": 514.9564277048056,
+  "Optimal": 479.6082185999895,
+  "Return": 739.8319881837843,
+  "S-shape": 630.4326106451442
+ },
+ "optimal_vs_sshape_pct": 23.923951505429052,
+ "largest_gap_vs_optimal_pct": 7.370225891457816,
+ "aisle_same_year_pct": 37.141186884709036,
+ "abc_shares": {
+  "A": 0.28186856690419637,
+  "B": 0.22644497228820268,
+  "C": 0.4916864608076009
+ },
+ "next_year_orders": 18957,
+ "example_orders": [
+  {
+   "winner": "r",
+   "order_index": 19,
+   "lines": 3,
+   "aisles": 2,
+   "m": {
+    "s": 127.0,
+    "r": 93.0,
+    "g": 127.0,
+    "c": 93.0
+   },
+   "margin_pct": 36.559139784946225,
+   "picks": [
+    {
+     "aisle": 4,
+     "y_m": 14.5,
+     "side": 1
+    },
+    {
+     "aisle": 0,
+     "y_m": 18.5,
+     "side": 0
+    },
+    {
+     "aisle": 0,
+     "y_m": 0.5,
+     "side": 1
+    }
+   ]
+  },
+  {
+   "winner": "s",
+   "order_index": 793,
+   "lines": 4,
+   "aisles": 3,
+   "m": {
+    "s": 138.0,
+    "r": 146.0,
+    "g": 150.0,
+    "c": 138.0
+   },
+   "margin_pct": 5.797101449275366,
+   "picks": [
+    {
+     "aisle": 2,
+     "y_m": 11.5,
+     "side": 0
+    },
+    {
+     "aisle": 1,
+     "y_m": 17.5,
+     "side": 1
+    },
+    {
+     "aisle": 0,
+     "y_m": 36.5,
+     "side": 0
+    },
+    {
+     "aisle": 2,
+     "y_m": 8.5,
+     "side": 0
+    }
+   ]
+  },
+  {
+   "winner": "g",
+   "order_index": 0,
+   "lines": 7,
+   "aisles": 5,
+   "m": {
+    "s": 344.0,
+    "r": 412.0,
+    "g": 228.0,
+    "c": 252.0
+   },
+   "margin_pct": 10.526315789473696,
+   "picks": [
+    {
+     "aisle": 0,
+     "y_m": 0.5,
+     "side": 0
+    },
+    {
+     "aisle": 2,
+     "y_m": 31.5,
+     "side": 1
+    },
+    {
+     "aisle": 1,
+     "y_m": 19.5,
+     "side": 1
+    },
+    {
+     "aisle": 1,
+     "y_m": 17.5,
+     "side": 1
+    },
+    {
+     "aisle": 0,
+     "y_m": 36.5,
+     "side": 0
+    },
+    {
+     "aisle": 3,
+     "y_m": 46.5,
+     "side": 0
+    },
+    {
+     "aisle": 7,
+     "y_m": 49.5,
+     "side": 1
+    }
+   ]
+  },
+  {
+   "winner": "c",
+   "order_index": 110,
+   "lines": 6,
+   "aisles": 5,
+   "m": {
+    "s": 430.0,
+    "r": 410.0,
+    "g": 402.0,
+    "c": 374.0
+   },
+   "margin_pct": 7.4866310160427885,
+   "picks": [
+    {
+     "aisle": 22,
+     "y_m": 30.5,
+     "side": 1
+    },
+    {
+     "aisle": 29,
+     "y_m": 22.5,
+     "side": 1
+    },
+    {
+     "aisle": 35,
+     "y_m": 8.5,
+     "side": 0
+    },
+    {
+     "aisle": 28,
+     "y_m": 32.5,
+     "side": 1
+    },
+    {
+     "aisle": 32,
+     "y_m": 4.5,
+     "side": 0
+    },
+    {
+     "aisle": 35,
+     "y_m": 7.5,
+     "side": 1
+    }
+   ]
+  }
+ ],
+ "example_orders_rule": "first order (by index) on the recommended layout, year-over-year evaluation year, with the storyboard line count (else the nearest), the given rule best (Return and S-shape tie with Combined) and >= 3% shorter than the other rules, 2-5 aisles",
+ "jam_wait_min": 18.351060643873655,
+ "jam_front5_pct": 93.68011264801568,
+ "skip_wait_reduction_pct": 42.21067213888765,
+ "segment_wait_drop_x": "8-9x (README Module 8b, reference point)",
+ "staffing": {
+  "pickers_before": 6,
+  "pickers_after": 4,
+  "cost_before": 0.9378541445405352,
+  "cost_after": 0.6239148080716128,
+  "cost_cut_pct": 33.4742175312052
+ },
+ "orders_by_hour": {
+  "days": 305,
+  "per_day": {
+   "6": 0.003278688524590164,
+   "7": 0.09508196721311475,
+   "8": 1.8524590163934427,
+   "9": 4.822950819672132,
+   "10": 7.668852459016393,
+   "11": 7.780327868852459,
+   "12": 10.504918032786886,
+   "13": 8.950819672131148,
+   "14": 7.9311475409836065,
+   "15": 7.573770491803279,
+   "16": 4.311475409836065,
+   "17": 2.1704918032786886,
+   "18": 0.6295081967213115,
+   "19": 0.47540983606557374,
+   "20": 0.05901639344262295
+  },
+  "after_18_share_pct": 1.7953775350225056,
+  "orders": 19773
+ }
+}
