@@ -551,6 +551,7 @@ The summary figure at the top (`reports/figures/00_summary.png`, plus a 1200 x 1
 - **Routing out-of-sample:** only Module 11's new-product-rule run evaluates routes on next year's orders. Module 7's per-order comparison of each rule with optimal is in-sample.
 - **Not done:** order batching (several orders in one picking tour), zone picking, and a sensitivity analysis on the modeled parameters (walking speed, pick time, shift, wage, cut-off rule).
 - **Layout is synthetic:** absolute distances depend on its dimensions (constants at the top of `src/02_slotting_routing.py`); relative differences between layouts depend on the layout shape and order size. Cross-aisle width and sideways movement inside an aisle are ignored.
+- **Rack levels are not modeled; vertical slotting (golden zone) is left out.**
 - **Walking time is an indicator, not a labour forecast:** 1.0 m/s, walking only.
 - **In-sample results:** Modules 2-3, 5 and 7 rank SKUs on the same period they are evaluated on. Module 4 shows that without a rule for new products about half the saving is lost on next year's orders, mostly because of SKUs with no pick history; with the new-product rule the recommended layout keeps 32% (S-shape), against 37% in-sample.
 - **Routing:** S-shape is the default rule in Modules 2-4, 6 and 8b-8c and 11. Module 7's optimal route is exact on every validated order with 10 SKUs or fewer, and within 0.23% on average of a longer search on larger orders. One picker per order.
