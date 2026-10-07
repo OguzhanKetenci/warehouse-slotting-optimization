@@ -109,6 +109,12 @@ a4 = st[(st["pickers"] == 4) & (st["cutoff_h"] == 18)].iloc[0]
 data["staffing"] = {"pickers_before": 6, "pickers_after": 4, "cost_before": float(a6["cost_units_per_order"]),
                     "cost_after": float(a4["cost_units_per_order"]),
                     "cost_cut_pct": float(100 * (1 - a4["cost_units_per_order"] / a6["cost_units_per_order"]))}
+# What drives 6 -> 4: the overtime rule (<= 30 min overtime work per picker on >= 95% of days); same-day is met by every team
+data["staffing"]["days_overtime_ok_pct_no_cutoff"] = {int(r.pickers): float(r.days_overtime_ok_pct)
+                                                      for r in st[st["cutoff_h"] == 24].itertuples()}
+data["staffing"]["days_overtime_ok_pct_cutoff_18"] = {int(r.pickers): float(r.days_overtime_ok_pct)
+                                                      for r in st[st["cutoff_h"] == 18].itertuples()}
+data["staffing"]["same_day_pct_no_cutoff_min"] = float(st[st["cutoff_h"] == 24]["pre_cutoff_same_day_pct"].min())
 
 # 6. Real orders by hour (x1 arrivals used by Modules 8a-8c and 11), average per working day
 arr = m8b.arrivals_for(1)
@@ -116,7 +122,8 @@ hour = (arr["t"].to_numpy() // 3600).astype(int)
 days = arr["date"].nunique()
 h = pd.Series(hour).value_counts().sort_index()
 data["orders_by_hour"] = {"days": int(days), "per_day": {int(k): float(v / days) for k, v in h.items()},
-                          "after_18_share_pct": float(100 * (hour >= 18).mean()), "orders": int(len(arr))}
+                          "after_18_share_pct": float(100 * (hour >= 18).mean()), "orders": int(len(arr)),
+                          "days_with_order_after_18": int(arr.loc[hour >= 18, "date"].nunique())}
 
 OUT.write_text(json.dumps(data, indent=1), encoding="utf-8")
 print(json.dumps({k: v for k, v in data.items() if k != "example_orders"}, indent=1))

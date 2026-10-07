@@ -177,17 +177,19 @@ const S=[
  if(t>9)decision('Skip a busy aisle, come back later: ↓ '+Math.round(VD.skip_wait_reduction_pct)+'% waiting',fi(t,9),1000)}},
 // VIDEO: real orders-by-hour profile (average working day, today's volume), before and after the 18:00 cut-off.
 // Orders after 18:00 move to the first shift hour (08:00), where carried orders are picked first.
-{name:'Fix 4: staffing',dur:9,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FIX 4 · STAFFING','Stop the evening','rush with a cut-off.',fi(t,0),COL.good);
+{name:'Fix 4: staffing',dur:9,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FIX 4 · STAFFING','A few late orders','set the team size.',fi(t,0),COL.good);
  const base=HOURS.map(h=>h<18?(OBH[h]||0):0),late=HOURS.map(h=>h>=18?(OBH[h]||0):0);
- const m=eo((t-3)/2.2),x0=70,y0=900,bw=36,top=Math.max(...base),sc=290/top;X.strokeStyle='#2c2e33';X.lineWidth=1;
+ const m=eo((t-3)/2.2),x0=70,y0=830,bw=36,top=Math.max(...base),sc=290/top;X.strokeStyle='#2c2e33';X.lineWidth=1;
  for(let q=2;q<=top;q+=2){const y=y0-q*sc;X.beginPath();X.moveTo(x0-10,y+.5);X.lineTo(x0+600,y+.5);X.stroke();if(q%4===0)T(String(q),x0-16,y+7,MIN,COL.mute,1,{f:FM,w:500,al:'right'})}
  HOURS.forEach((h,i)=>{const x=x0+i*40,bh=base[i]*sc;X.fillStyle='#4b5160';X.fillRect(x,y0-bh,bw,bh);const lh=late[i]*sc*(1-m);if(lh>0){X.fillStyle=COL.bad;X.fillRect(x,y0-bh-lh,bw,lh)}if(i%2===0)T(String(h).padStart(2,'0'),x+bw/2,y0+32,MIN,COL.mute,1,{f:FM,w:500,al:'center'})});
  const i8=HOURS.indexOf(8);let stack=base[i8]*sc;HOURS.forEach((h,i)=>{if(!late[i]||m<=0)return;const mh=late[i]*sc*m,fx=x0+i*40,tx=x0+i8*40;X.fillStyle=COL.safety;X.fillRect(lerp(fx,tx,m),y0-stack-mh-lerp(140,0,m)*(m<1?1:0),bw,mh);stack+=mh});
- T('ORDERS PER HOUR · AVERAGE DAY',x0-10,430,MIN,COL.mute,1,{f:FM,w:500,ls:2});X.fillStyle='#4b5160';X.fillRect(x0-10,458,18,18);T('daytime orders',x0+18,475,MIN,COL.mute,1,{f:FB});X.fillStyle=t<3?COL.bad:COL.safety;X.fillRect(x0-10,494,18,18);T(t<3?'after 18:00, same day':'moved to next morning',x0+18,511,MIN,COL.mute,1,{f:FB});
- T('team needed: '+(t<5?ST.pickers_before:ST.pickers_after)+' pickers',40,990,CAP,COL.ink,1,{f:FB,w:500});
- for(let i=0;i<6;i++){worker(110+i*90,1040,-Math.PI/2,0,{alpha:i>=4?lerp(1,.15,fi(t,5.2,.8)):1,sc:2.4})}
- T('Same orders, fewer paid hours.',40,1120,30,COL.ink,fi(t,6.2),{f:FB,w:500});T('↓ '+Math.round(ST.cost_cut_pct)+'% labour cost per order',40,1172,44,COL.good,fi(t,6.8),{w:700});
- T(ST.cost_before.toFixed(2)+' → '+ST.cost_after.toFixed(2)+' wage-hours per order',40,1222,CAP,COL.mute,fi(t,7.2),{f:FB,w:400})}},
+ T('ORDERS PER HOUR · AVERAGE DAY',x0-10,360,MIN,COL.mute,1,{f:FM,w:500,ls:2});X.fillStyle='#4b5160';X.fillRect(x0-10,388,18,18);T('daytime orders',x0+18,405,MIN,COL.mute,1,{f:FB});X.fillStyle=t<3?COL.bad:COL.safety;X.fillRect(x0-10,424,18,18);T(t<3?'after 18:00, same day':'moved to next morning',x0+18,441,MIN,COL.mute,1,{f:FB});
+ T('team needed: '+(t<5?ST.pickers_before:ST.pickers_after)+' pickers',40,920,CAP,COL.ink,1,{f:FB,w:500});
+ for(let i=0;i<6;i++){worker(110+i*90,970,-Math.PI/2,0,{alpha:i>=4?lerp(1,.15,fi(t,5.2,.8)):1,sc:2.4})}
+ // VIDEO (fix): the cut-off saves pickers through the overtime rule, not by flattening the load
+ TW('Only '+VD.orders_by_hour.after_18_share_pct.toFixed(1)+'% of orders arrive after 18:00, but on 1 day in '+Math.round(VD.orders_by_hour.days/VD.orders_by_hour.days_with_order_after_18)+'. Picking them the same day takes '+ST.pickers_before+' pickers to keep overtime within 30 min each.',40,1100,CAP,COL.ink,fi(t,1),{f:FB,w:500,mw:640},34);
+ T('↓ '+Math.round(ST.cost_cut_pct)+'% labour cost per order',40,1226,44,COL.good,fi(t,6.8),{w:700});
+ T('Cut-off at 18:00: '+ST.cost_before.toFixed(2)+' → '+ST.cost_after.toFixed(2)+' wage-hours per order',40,1266,CAP,COL.mute,fi(t,7.2),{f:FB,w:400,mw:640})}},
 // VIDEO: rule cards widened to 600 px so the rule text is caption size
 {name:'Built for a WMS',dur:6,f(t){X.fillStyle=COL.bg;X.fillRect(0,0,VW,VH);head('FROM ANALYSIS TO SYSTEM','Five rules a WMS','can run every day.',fi(t,0),COL.safety);
  const bx=40,by=400,bw=640,bh=572;X.strokeStyle=COL.safety;X.lineWidth=2;rr(bx,by,bw,bh,14);X.fillStyle='#16171a';X.fill();X.stroke();T('WMS',360,by+56,40,COL.safety,1,{al:'center',w:700,ls:6});

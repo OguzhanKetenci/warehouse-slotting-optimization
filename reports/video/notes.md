@@ -48,6 +48,15 @@ Rebuild: `python reports/video/make_video_data.py`, `python reports/video/music_
     - **Cut-off animation:** with the 18:00 cut-off, the post-18:00 orders move onto the 08:00 bar, because carried orders are picked first the next morning.
     - **Capacity line removed:** the dashed "team needed" line was an illustrative height with no real scale, so it is dropped. The "team needed: 6/4 pickers" label is kept above the workers.
     - **Added line:** "0.94 → 0.62 wage-hours per order", since the brief lists it.
+    - **Wording fix (2026-10-08):** the storyboard headline "Stop the evening rush with a cut-off." and caption "Same orders, fewer paid hours." implied the cut-off flattens the workload. It does not: only 1.8% of orders arrive after 18:00. What drives 6 → 4 in Module 11 (Aisle-based velocity) is the overtime rule (≤ 30 min overtime per picker on ≥ 95% of days):
+      - Without a cut-off, every team meets the same-day target (100%). The late orders, spread over 59 of 305 days, force evening overtime, and only a larger team spreads it thin enough: 4 pickers pass on 89.5% of days, 5 on 94.4%, 6 on 96.1%.
+      - With the 18:00 cut-off those orders wait until 08:00, and 4 pickers pass on 97.0% of days.
+      - The saving is the two pickers the overtime rule would otherwise demand, not less work: 4 pickers working the evenings would cost 0.63 per order, the same as 4 with a cut-off.
+      - New text:
+        - Headline: "A few late orders / set the team size."
+        - Caption: "Only 1.8% of orders arrive after 18:00, but on 1 day in 5. Picking them the same day takes 6 pickers to keep overtime within 30 min each."
+        - Result lines: "↓ 33% labour cost per order" and "Cut-off at 18:00: 0.94 → 0.62 wage-hours per order".
+      - The chart, legend, team label and pickers moved up 70 px to make room. The values come from `video_data.json` (new fields `days_with_order_after_18` and the overtime pass rates; all earlier values unchanged).
 13. **Music.**
     - **Cut:** `atrim` from 155.4 s to 246.9 s.
     - **Fades:** 0.5 s fade-in at the start; 2 s fade-out over the last 2 s (from 89.5 s).
@@ -131,11 +140,12 @@ Sources: `video_data.json`, built from `new_product_rule_routing.csv` (year-over
 | Staffing: pickers | 6 → 4 | 6 → 4 | no |
 | Staffing: labour cost per order | ↓ 33% | ↓ 33% (33.5%) | no |
 | Staffing: wage-hours per order | not shown | 0.94 → 0.62 (added) | added |
+| Staffing: headline and caption | "Stop the evening rush with a cut-off." / "Same orders, fewer paid hours." | "A few late orders set the team size." / "Only 1.8% of orders arrive after 18:00, but on 1 day in 5. Picking them the same day takes 6 pickers to keep overtime within 30 min each." | yes (wording, see decision 12) |
 | Staffing: orders by hour | illustrative shape | real average-day profile, 06-20 h (peak 10.5 orders at 12:00; 1.8% after 18:00) | yes |
 | Hook: orders, products, months | 19,773 · 3,791 · 12 | 19,773 · 3,791 · 12 | no |
 | Hook: "half their shift walking" | Tompkins et al. | unchanged (external source, not a repo result) | no |
 
 ## Render
 
-- 2,745 frames in 100 s (Chromium canvas `toDataURL` PNG piped into ffmpeg, libx264 preset slow, CRF 18, yuv420p, faststart).
+- 2,745 frames in 100 s, 86 s on the 2026-10-08 re-render (Chromium canvas `toDataURL` PNG piped into ffmpeg, libx264 preset slow, CRF 18, yuv420p, faststart).
 - `ffprobe`: h264, 1080x1920, 30/1 fps, yuv420p, 91.500 s. The music version adds AAC audio of 91.500 s.
