@@ -166,3 +166,16 @@ Sources: `video_data.json`, built from `new_product_rule_routing.csv` (year-over
 - **Real range:** `clean_lines.csv` runs from 1 Dec 2010 08:26 to 9 Dec 2011 12:50. That is 374 calendar days (12 months and 9 days) and 305 working days, with 19,773 orders and 3,791 SKUs.
 - **Opening text:** "12 months" in the opening scene is replaced by "1 Dec 2010 – 9 Dec 2011", on its own line below "19,773 real orders · 3,791 products".
 - **Re-render:** both videos and the contact sheet, 99 s. No timing changed, so the music sync is unchanged.
+
+## Slotting label overlaps (2026-10-08)
+
+- **Legend:** now one compact line ("Box colour = pick frequency: ■ fast mover ■ slow mover", 36 px) in the floor strip above the racks (y 114-144 in the 720 space; racks start at 176). It covers no racks and is drawn before the route, so the walker stays on top. Same in "The problem" scene.
+- **A / B / C labels:** each goes to the slot nearest its zone centre that is at least 62 px from every point of the ABC-step route, so neither the route line nor the walker can reach the label (radius 26). Result: A (287, 525), B (302, 445), C (468, 363); clearance from the whole route 82, 98 and 266 px.
+- **Two drawing layers:** zone tints and the aisle highlight are drawn under the route. Labels, rank numbers and aisle chips are drawn after the route and the walker, so nothing covers them.
+- **Full velocity rank numbers:** circles 1-9 overlapped in pairs (the two halves of one rack are 15 px apart). They now have radius 11 (was 14; digits still 30 px) and are nudged 6 px toward their own aisle. The closest pair is 4.8 px apart.
+- **Aisle-based aisle chips:** moved from straddling the front-aisle route line (y 680-708) to the gap between the racks and the front aisle (y 673-697), above the route line.
+- **Per-frame check** (`labelcheck.js`, all frames of Fix 1):
+  - ABC step: 56 frames. Label clearance is at least 51 px from the drawn route line and at least 23 px from the walker. No overlap with the legend, the info card, the decision banner or another label.
+  - Full velocity: 57 frames, no number covered.
+  - Aisle-based: 57 frames, no chip covered, none on the front-aisle line.
+- **Unchanged:** no scene length changed, so the music sync holds. Re-render took 97 s; smallest text still 30 px. The contact sheet now shows the ABC step (18.4 s) for Fix 1.
